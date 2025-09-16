@@ -290,23 +290,19 @@ def get_offline_fallback_data():
     return fallback_data
 
 def get_bird_data():
-    """Fetches bird data from API and returns it along with a flag indicating API status."""
+    """Fetches bird data from API (no basic auth) and returns it along with a flag indicating API status."""
     global cached_bird_data, latest_detection_id
-    base_url_with_auth = f"https://{USER_PASS['user']}:{USER_PASS['pass']}@{BASE_URL.split('//')[-1]}"
-    api_url = urljoin(base_url_with_auth, API_ENDPOINT)
-    
+    api_url = urljoin(BASE_URL, API_ENDPOINT)
     try:
         response = requests.get(api_url, headers=HEADERS, proxies=PROXIES, timeout=30)
         response.raise_for_status()
-        
         soup = BeautifulSoup(response.text, 'html.parser')
         detections = soup.find_all('div', class_='grid grid-cols-12 gap-4 items-center px-4 py-1 hover:bg-gray-50')
-        if not detections: return [], False
-
-        all_parsed = [d for d in [parse_detection_item(item, base_url_with_auth) for item in detections] if d]
+        if not detections:
+            return [], False
+        all_parsed = [d for d in [parse_detection_item(item, BASE_URL) for item in detections] if d]
         top_species = list(dict.fromkeys(d['name'] for d in all_parsed))[:3]
         new_id = "-".join(sorted(top_species))
-
         data_to_process = []
         if new_id == latest_detection_id and cached_bird_data:
             print("[INFO] Top species unchanged. Using data from memory cache.")
@@ -317,12 +313,13 @@ def get_bird_data():
             if len(final_list) < 3:
                 urls_in_list = {b['image_url'] for b in final_list}
                 for bird in all_parsed:
-                    if len(final_list) >= 3: break
-                    if bird['image_url'] not in urls_in_list: final_list.append(bird)
+                    if len(final_list) >= 3:
+                        break
+                    if bird['image_url'] not in urls_in_list:
+                        final_list.append(bird)
             cached_bird_data = final_list
             latest_detection_id = new_id
             data_to_process = final_list
-            
         internet_up = is_internet_available()
         display_data = []
         for bird in data_to_process:
@@ -337,19 +334,16 @@ def get_bird_data():
                 else:
                     print(f"[WARN] No cached image found for '{bird['name']}'.")
             display_data.append(bird_display_copy)
-        
         if not internet_up and new_id != latest_detection_id:
             for bird in cached_bird_data:
-                 cached_asset = get_cached_image(bird['name'], bird['time_raw'])
-                 if cached_asset:
+                cached_asset = get_cached_image(bird['name'], bird['time_raw'])
+                if cached_asset:
                     bird['image_url'] = cached_asset['image_url']
                     bird['copyright'] = cached_asset['copyright']
-
-        return display_data, False # API is UP
-
+        return display_data, False  # API is UP
     except requests.exceptions.RequestException as e:
         print(f"Error: Failed to fetch data from API: {e}")
-        return get_offline_fallback_data(), True # API is DOWN
+        return get_offline_fallback_data(), True  # API is DOWN
 
 # --- Flask Route ---
 @app.route('/')
