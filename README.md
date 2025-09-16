@@ -1,6 +1,7 @@
 
 # BirdNET Display
 
+A Python-based web application designed to run on a Raspberry Pi alongside BirdNETPi-Go. It displays the latest 3 bird detections on a screen attached to the Pi, using BirdNET data and local image caches. It is designed around the standard 800x480px screens.
 
 ## Screenshots
 
@@ -21,8 +22,6 @@ The offline version displays a random assortment of birds native to the area, us
 The interface also displays the IP address of the Pi as a QR code for easy access from other devices.
 
 ![QR Code Overlay](screenshots/qr%20code%20overlay.png)
-
-A Python-based web application designed to run on a Raspberry Pi alongside BirdNET-Pi-Go. It displays the latest 3 bird detections on a screen attached to the Pi, using BirdNET data and local image caches.
 
 ## Features
 - Designed for Raspberry Pi with a connected display
