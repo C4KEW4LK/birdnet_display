@@ -1,4 +1,26 @@
+
 # BirdNET Display
+
+
+## Screenshots
+
+**Online Mode:**
+
+The online version shows the most recently detected unique birds, each with their confidence value as reported by BirdNET-Pi-Go.
+
+![Main Interface (Online)](screenshots/main_interface_online.png)
+
+**Offline Mode:**
+
+The offline version displays a random assortment of birds native to the area, using cached images and information.
+
+![Main Interface (Offline)](screenshots/main_interface_offline.png)
+
+**QR Code Overlay:**
+
+The interface also displays the IP address of the Pi as a QR code for easy access from other devices.
+
+![QR Code Overlay](screenshots/qr%20code%20overlay.png)
 
 A Python-based web application designed to run on a Raspberry Pi alongside BirdNET-Pi-Go. It displays the latest 3 bird detections on a screen attached to the Pi, using BirdNET data and local image caches.
 
@@ -8,6 +30,7 @@ A Python-based web application designed to run on a Raspberry Pi alongside BirdN
 - Displays the IP address (including a QR code) of the Raspberry Pi on the webpage
 - Displays a list of bird species from a CSV or text file
 - Shows cached images and info for each species
+- Caches images for all birds in the species list so the app can work completely offline and still display birds
 - Simple web interface (see `static/index.html`)
 - Easily extensible for new species or image data
 
