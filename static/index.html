@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><title>Live Bird Detections</title>
+    <meta http-equiv="refresh" content="{{ refresh_interval }}">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #eef1f5; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; box-sizing: border-box; }
+        .main-layout { display: flex; gap: 15px; padding: 15px; width: 100vw; height: 100vh; box-sizing: border-box; }
+        .left-column { flex: 2; display: flex; flex-direction: column; }
+        .right-column { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+        .detection-card { border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; position: relative; color: white; }
+        .card-background { position: absolute; top: -20px; left: -20px; width: calc(100% + 40px); height: calc(100% + 40px); background-size: cover; background-position: center; filter: blur(15px); z-index: 0; }
+        .detection-card .bird-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; border-radius: 12px; }
+        .card-content-overlay { position: relative; z-index: 2; height: 100%; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%); box-sizing: border-box; }
+        .main-card { flex-grow: 1; }
+        .main-card .card-content-overlay { padding: 20px; }
+        .main-card h1 { font-size: 2.2em; margin: 0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 6px rgba(0,0,0,0.7); }
+        .time-display, .copyright-display { text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 4px rgba(0,0,0,0.7); }
+        .main-card .time-display { font-size: 1.1em; color: #e2e8f0; }
+        .main-card .copyright-display { font-size: 0.9em; color: #cbd5e1; margin-top: 2px; }
+        .side-card { flex: 1; }
+        .side-card h2 { font-size: 1.2em; margin: 0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 5px rgba(0,0,0,0.7); }
+        .side-card .time-display { font-size: 0.9em; color: #e2e8f0; }
+        .side-card .copyright-display { font-size: 0.8em; color: #cbd5e1; margin-top: 2px; }
+        .confidence-circle-container { position: relative; width: 50px; height: 50px; }
+        .main-card .confidence-circle-container { width: 60px; height: 60px; }
+        .confidence-circle { display: block; margin: 0 auto; width: 100%; height: 100%; }
+        .circle-bg { fill: none; stroke: rgba(255, 255, 255, 0.2); stroke-width: 3.8; }
+        .circle-progress { fill: none; stroke-width: 3.8; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.5s; filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.8)); }
+        .circle-text { font-size: 11px; font-weight: 600; text-anchor: middle; stroke: #000; stroke-width: 0.6px; paint-order: stroke; transition: fill 0.5s; }
+        .main-card .circle-text { font-size: 10px; }
+        .card-footer { display: flex; justify-content: space-between; align-items: flex-end; }
+        .footer-text p { margin: 0; }
+        
+        /* --- QR Code Modal Styles --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2vw;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            width: max-content; 
+            max-width: 95vw;    
+            max-height: 95vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        .modal-content h2 {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 1.5em;
+            color: #111;
+        }
+        .modal-content img {
+            max-width: 500px;
+            max-height: 70vh;
+            height: auto;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .modal-content p {
+            margin-top: 8px; 
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 2.2em; 
+            color: #333;
+            font-weight: bold;
+            white-space: nowrap; 
+        }
+    </style>
+</head>
+<body>
+    <div class="main-layout">
+        <div class="left-column">
+            {% if birds and birds[0] %}
+            <div class="detection-card main-card">
+                <div class="card-background" style="background-image: url('{{ birds[0].image_url }}');"></div>
+                <img class="bird-image" src="{{ birds[0].image_url }}" alt="Image of {{ birds[0].name }}">
+                <div class="card-content-overlay">
+                    <div><h1>{{ birds[0].name }}</h1></div>
+                    <div class="card-footer">
+                        <div class="footer-text"><p class="time-display">{{ birds[0].time_display }}</p><p class="copyright-display">{{ birds[0].copyright }}</p></div>
+                        {% if not api_is_down %}
+                        <div class="confidence-circle-container" data-confidence="{{ birds[0].confidence_value }}">
+                            <svg class="confidence-circle" viewBox="0 0 36 36"><path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><text x="18" y="22" class="circle-text">{{ birds[0].confidence }}</text></svg>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="right-column">
+            {% if birds and birds[1] %}
+            <div class="detection-card side-card">
+                 <div class="card-background" style="background-image: url('{{ birds[1].image_url }}');"></div>
+                <img class="bird-image" src="{{ birds[1].image_url }}" alt="Image of {{ birds[1].name }}">
+                <div class="card-content-overlay">
+                    <div><h2>{{ birds[1].name }}</h2></div>
+                    <div class="card-footer">
+                         <div class="footer-text"><p class="time-display">{{ birds[1].time_display }}</p><p class="copyright-display">{{ birds[1].copyright }}</p></div>
+                         {% if not api_is_down %}
+                         <div class="confidence-circle-container" data-confidence="{{ birds[1].confidence_value }}">
+                            <svg class="confidence-circle" viewBox="0 0 36 36"><path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><text x="18" y="22" class="circle-text">{{ birds[1].confidence }}</text></svg>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% if birds and birds[2] %}
+            <div class="detection-card side-card">
+                <div class="card-background" style="background-image: url('{{ birds[2].image_url }}');"></div>
+                <img class="bird-image" src="{{ birds[2].image_url }}" alt="Image of {{ birds[2].name }}">
+                <div class="card-content-overlay">
+                    <div><h2>{{ birds[2].name }}</h2></div>
+                    <div class="card-footer">
+                         <div class="footer-text"><p class="time-display">{{ birds[2].time_display }}</p><p class="copyright-display">{{ birds[2].copyright }}</p></div>
+                         {% if not api_is_down %}
+                         <div class="confidence-circle-container" data-confidence="{{ birds[2].confidence_value }}">
+                           <svg class="confidence-circle" viewBox="0 0 36 36"><path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><text x="18" y="22" class="circle-text">{{ birds[2].confidence }}</text></svg>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="qrModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Connect to me</h2>
+            <img id="qrImage" src="" alt="Server Address QR Code">
+            <p id="qrUrlText"></p>
+        </div>
+    </div>
+
+    <script>
+        // This script handles the confidence circles
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.confidence-circle-container').forEach(container => {
+                const confidence = parseInt(container.dataset.confidence, 10) || 0;
+                const svg = container.querySelector('svg');
+                if (!svg) return;
+                const progressCircle = svg.querySelector('.circle-progress');
+                const textElement = svg.querySelector('.circle-text');
+                const circumference = 99.99; // 2 * pi * 15.9155
+                progressCircle.style.strokeDasharray = `${circumference}, ${circumference}`;
+                progressCircle.style.strokeDashoffset = circumference - (confidence / 100) * circumference;
+                let color = '#ef4444'; // low
+                if (confidence >= 70) { color = '#22c55e'; } else if (confidence >= 50) { color = '#f97316'; }
+                progressCircle.style.stroke = color;
+                textElement.style.fill = color;
+            });
+        });
+
+        // This new script handles the QR Code modal
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('qrModal');
+            const qrImage = document.getElementById('qrImage');
+            const qrUrlText = document.getElementById('qrUrlText');
+            
+            let isModalVisible = false;
+            let timeoutId;
+
+            function hideModal() {
+                modal.style.display = 'none';
+                isModalVisible = false;
+                if (timeoutId) {
+                    clearTimeout(timeoutId);
+                }
+            }
+
+            function showModal() {
+                // Set content
+                // By adding a timestamp we ensure the browser doesn't use a cached QR code
+                qrImage.src = '/qr_code.png?' + new Date().getTime(); 
+                qrUrlText.textContent = {{ server_url | tojson }};
+
+                // Show modal
+                modal.style.display = 'flex';
+                isModalVisible = true;
+
+                // Set timeout to hide modal after 30 seconds
+                timeoutId = setTimeout(hideModal, 30000); 
+            }
+
+            // Add click listener to the whole document
+            document.body.addEventListener('click', function(event) {
+                if (isModalVisible) {
+                    hideModal();
+                } else {
+                    showModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
