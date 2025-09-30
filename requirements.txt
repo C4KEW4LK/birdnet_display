@@ -1,4 +1,5 @@
-flask
 requests
 beautifulsoup4
-qrcode
+Flask
+qrcode[pil]
+Pillow

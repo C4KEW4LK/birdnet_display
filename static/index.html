@@ -2,26 +2,25 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"><title>Live Bird Detections</title>
-    <meta http-equiv="refresh" content="{{ refresh_interval }}">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #eef1f5; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; box-sizing: border-box; }
-        .main-layout { display: flex; gap: 15px; padding: 15px; width: 100vw; height: 100vh; box-sizing: border-box; }
-        .left-column { flex: 2; display: flex; flex-direction: column; }
-        .right-column { flex: 1; display: flex; flex-direction: column; gap: 15px; }
-        .detection-card { border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; position: relative; color: white; }
-        .card-background { position: absolute; top: -20px; left: -20px; width: calc(100% + 40px); height: calc(100% + 40px); background-size: cover; background-position: center; filter: blur(15px); z-index: 0; }
-        .detection-card .bird-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; border-radius: 12px; }
-        .card-content-overlay { position: relative; z-index: 2; height: 100%; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%); box-sizing: border-box; }
+        
+        /* Base styles for components */
+        .main-layout { gap: 15px; padding: 15px; width: 100vw; height: 100vh; box-sizing: border-box; }
+        .left-column { display: flex; flex-direction: column; }
+        .right-column { display: flex; flex-direction: column; gap: 15px; }
+        .detection-card { border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; position: relative; color: white; transition: opacity 0.5s ease-in-out; }
+        .card-background { position: absolute; top: -20px; left: -20px; width: calc(100% + 40px); height: calc(100% + 40px); background-size: cover; background-position: center; filter: blur(15px); z-index: 0; transition: background-image 0.5s ease-in-out; }
+        .detection-card .bird-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; border-radius: 12px; transition: opacity 0.5s ease-in-out; }
+        .card-content-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%); box-sizing: border-box; }
         .main-card { flex-grow: 1; }
-        .main-card .card-content-overlay { padding: 20px; }
-        .main-card h1 { font-size: 2.2em; margin: 0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 6px rgba(0,0,0,0.7); }
-        .time-display, .copyright-display { text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 4px rgba(0,0,0,0.7); }
-        .main-card .time-display { font-size: 1.1em; color: #e2e8f0; }
-        .main-card .copyright-display { font-size: 0.9em; color: #cbd5e1; margin-top: 2px; }
         .side-card { flex: 1; }
-        .side-card h2 { font-size: 1.2em; margin: 0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 5px rgba(0,0,0,0.7); }
-        .side-card .time-display { font-size: 0.9em; color: #e2e8f0; }
-        .side-card .copyright-display { font-size: 0.8em; color: #cbd5e1; margin-top: 2px; }
+        h1 { font-size: 2.2em; }
+        h2 { font-size: 1.2em; }
+        h1, h2 { margin: 0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 6px rgba(0,0,0,0.7); }
+        .time-display { font-size: 1.1em; color: #e2e8f0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 4px rgba(0,0,0,0.7); }
+        .side-card .time-display { font-size: 0.9em; }
+        .copyright-display { font-size: 0.8em; color: #cbd5e1; }
         .confidence-circle-container { position: relative; width: 50px; height: 50px; }
         .main-card .confidence-circle-container { width: 60px; height: 60px; }
         .confidence-circle { display: block; margin: 0 auto; width: 100%; height: 100%; }
@@ -29,75 +28,90 @@
         .circle-progress { fill: none; stroke-width: 3.8; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.5s; filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.8)); }
         .circle-text { font-size: 11px; font-weight: 600; text-anchor: middle; stroke: #000; stroke-width: 0.6px; paint-order: stroke; transition: fill 0.5s; }
         .main-card .circle-text { font-size: 10px; }
-        .card-footer { display: flex; justify-content: space-between; align-items: flex-end; }
         .footer-text p { margin: 0; }
+        .card-footer { display: flex; justify-content: space-between; align-items: flex-end; }
+        .footer-right { display: flex; align-items: flex-end; gap: 15px; }
+        .copyright-display { margin: 0 0 5px 0; text-align: right; }
         
-        /* --- QR Code Modal Styles --- */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: none; /* Hidden by default */
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            padding: 10px;
-            box-sizing: border-box;
-        }
-        .modal-content {
-            background-color: white;
-            padding: 2vw;
-            border-radius: 10px;
-            text-align: center;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            width: max-content; 
-            max-width: 95vw;    
-            max-height: 95vh;
-            overflow-y: auto;
-            box-sizing: border-box;
-        }
-        .modal-content h2 {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin-top: 0;
-            margin-bottom: 12px;
-            font-size: 1.5em;
-            color: #111;
-        }
-        .modal-content img {
-            max-width: 500px;
-            max-height: 70vh;
-            height: auto;
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .modal-content p {
-            margin-top: 8px; 
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 2.2em; 
-            color: #333;
-            font-weight: bold;
-            white-space: nowrap; 
-        }
+        /* --- DYNAMIC LAYOUT STYLES --- */
+        .layout-1 .main-layout, .layout-3 .main-layout, .layout-4e .main-layout { display: flex; }
+        .layout-1 .left-column { flex: 1; }
+        .layout-1 .right-column { display: none; }
+        .layout-3 .left-column, .layout-4e .left-column { flex: 2; }
+        .layout-3 .right-column, .layout-4e .right-column { flex: 1; }
+        .layout-3 #card-3 { display: none; }
+        .layout-4g .main-layout { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        .layout-4g .left-column, .layout-4g .right-column { display: contents; }
+        .layout-4g .detection-card { flex: 1; }
+        .layout-4g .detection-card h1, .layout-4g .detection-card h2 { font-size: 1.8em; }
+        .layout-btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .layout-btn { padding: 8px 16px; border: 1px solid #ccc; background-color: #f0f0f0; border-radius: 8px; cursor: pointer; }
+        .layout-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+
+        /* --- MODAL AND SETTINGS STYLES --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.3s; }
+        .modal-content { background-color: white; padding: 2vw; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: max-content; max-width: 95vw; max-height: 95vh; overflow-y: auto; box-sizing: border-box; position: relative; }
+        .modal-content h2 { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 12px; font-size: 1.5em; color: #111; text-shadow: none; }
+        #qrModal .modal-content img { max-width: 400px; max-height: 50vh; height: auto; display: block; margin-left: auto; margin-right: auto; }
+        .modal-content p#qrUrlText { margin-top: 8px; font-family: 'Courier New', Courier, monospace; font-size: 1.5em; color: #333; font-weight: bold; white-space: nowrap; }
+        #settings-overlay { position: fixed; top: 0; left: 0; width: 100%; z-index: 2000; transform: translateY(-100%); transition: transform 0.3s ease-in-out; background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); padding-bottom: 15px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+        #settings-overlay.visible { transform: translateY(0); }
+        #settings-menu { padding: 25px 20px 15px 20px; display: flex; justify-content: center; gap: 20px; }
+        .settings-btn { padding: 12px 25px; font-size: 1.1em; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; background-color: #f8fafc; color: #1e293b; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: background-color 0.2s, transform 0.2s; }
+        .settings-btn:active { transform: scale(0.96); }
+        .settings-btn.shutdown { background-color: #dc2626; color: white; }
+        #swipe-handle { width: 50px; height: 5px; background-color: rgba(255, 255, 255, 0.6); border-radius: 2.5px; margin: 0 auto; }
+        #settings-icon-btn { position: absolute; top: 10px; left: 10px; background: none; border: none; cursor: pointer; padding: 5px; z-index: 10; }
+        #settings-icon-btn svg { width: 28px; height: 28px; fill: #555; }
+        #mic-status-icon { position: absolute; top: 10px; right: 10px; z-index: 10; }
+        #mic-status-icon svg { width: 28px; height: 28px; transition: fill 0.3s; }
+        #mic-status-icon.connected svg { fill: #22c55e; } /* Green */
+        #mic-status-icon.disconnected svg { fill: #dc2626; } /* Red */
+        #settingsModal { z-index: 1100; }
+        #settingsModal .modal-content { width: 400px; max-width: 90vw; color: #111; }
+        #settingsModal h2 { margin-bottom: 25px; }
+        .settings-group { margin-bottom: 20px; text-align: left; }
+        .settings-group label { display: block; margin-bottom: 8px; font-weight: 500; }
+        .system-buttons { display: flex; justify-content: space-between; gap: 10px; margin-top: 25px; }
+        .system-btn { flex: 1; padding: 12px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; }
+        .restart-btn { background-color: #f97316; color: white; }
+        .power-btn { background-color: #dc2626; color: white; }
+        #confirmModal { z-index: 1200; }
+        #confirmModal .modal-content { width: 400px; padding: 25px; }
+        #confirmMessage { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 1.2em; color: #333; font-weight: 500; margin: 10px 0 0 0; }
+        #confirmButtons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
+        #confirmBtn, #cancelBtn { padding: 10px 25px; font-size: 1em; border-radius: 8px; border: none; cursor: pointer; }
+        #cancelBtn { background-color: #e2e8f0; }
+        #confirmBtn { background-color: #dc2626; color: white; }
+        input[type="range"] { width: 100%; height: 15px; -webkit-appearance: none; background: #e2e8f0; border-radius: 8px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 30px; height: 30px; background: #3b82f6; cursor: pointer; border-radius: 50%; }
+        input[type="range"]::-moz-range-thumb { width: 30px; height: 30px; background: #3b82f6; cursor: pointer; border-radius: 50%; border: none; }
     </style>
 </head>
-<body>
+<body class="">
+
+    <div id="settings-overlay">
+        <div id="settings-menu">
+            <button id="mode-btn" class="settings-btn">Change Mode</button>
+            <button id="shutdown-btn" class="settings-btn shutdown">Shutdown</button>
+        </div>
+        <div id="swipe-handle"></div>
+    </div>
+
     <div class="main-layout">
         <div class="left-column">
             {% if birds and birds[0] %}
-            <div class="detection-card main-card">
-                <div class="card-background" style="background-image: url('{{ birds[0].image_url }}');"></div>
-                <img class="bird-image" src="{{ birds[0].image_url }}" alt="Image of {{ birds[0].name }}">
+            <div id="card-0" class="detection-card main-card">
+                <div id="card-bg-0" class="card-background" style="background-image: url('{{ birds[0].image_url }}');"></div>
+                <img id="img-0" class="bird-image" src="{{ birds[0].image_url }}" alt="Image of bird">
                 <div class="card-content-overlay">
-                    <div><h1>{{ birds[0].name }}</h1></div>
+                    <div><h1 id="name-0">{{ birds[0].name }}</h1></div>
                     <div class="card-footer">
-                        <div class="footer-text"><p class="time-display">{{ birds[0].time_display }}</p><p class="copyright-display">{{ birds[0].copyright }}</p></div>
-                        {% if not api_is_down %}
-                        <div class="confidence-circle-container" data-confidence="{{ birds[0].confidence_value }}">
-                            <svg class="confidence-circle" viewBox="0 0 36 36"><path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><text x="18" y="22" class="circle-text">{{ birds[0].confidence }}</text></svg>
+                        <div class="footer-text"><p id="time-0" class="time-display">{{ birds[0].time_display }}</p></div>
+                        <div class="footer-right">
+                            <p id="copyright-0" class="copyright-display"></p>
+                            <div id="confidence-container-0" class="confidence-circle-container" data-confidence="{{ birds[0].confidence_value }}"></div>
                         </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -105,35 +119,49 @@
         </div>
         <div class="right-column">
             {% if birds and birds[1] %}
-            <div class="detection-card side-card">
-                 <div class="card-background" style="background-image: url('{{ birds[1].image_url }}');"></div>
-                <img class="bird-image" src="{{ birds[1].image_url }}" alt="Image of {{ birds[1].name }}">
+            <div id="card-1" class="detection-card side-card">
+                <div id="card-bg-1" class="card-background" style="background-image: url('{{ birds[1].image_url }}');"></div>
+                <img id="img-1" class="bird-image" src="{{ birds[1].image_url }}" alt="Image of bird">
                 <div class="card-content-overlay">
-                    <div><h2>{{ birds[1].name }}</h2></div>
+                    <div><h2 id="name-1">{{ birds[1].name }}</h2></div>
                     <div class="card-footer">
-                         <div class="footer-text"><p class="time-display">{{ birds[1].time_display }}</p><p class="copyright-display">{{ birds[1].copyright }}</p></div>
-                         {% if not api_is_down %}
-                         <div class="confidence-circle-container" data-confidence="{{ birds[1].confidence_value }}">
-                            <svg class="confidence-circle" viewBox="0 0 36 36"><path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><text x="18" y="22" class="circle-text">{{ birds[1].confidence }}</text></svg>
+                        <div class="footer-text"><p id="time-1" class="time-display">{{ birds[1].time_display }}</p></div>
+                        <div class="footer-right">
+                            <p id="copyright-1" class="copyright-display"></p>
+                            <div id="confidence-container-1" class="confidence-circle-container" data-confidence="{{ birds[1].confidence_value }}"></div>
                         </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
             {% endif %}
             {% if birds and birds[2] %}
-            <div class="detection-card side-card">
-                <div class="card-background" style="background-image: url('{{ birds[2].image_url }}');"></div>
-                <img class="bird-image" src="{{ birds[2].image_url }}" alt="Image of {{ birds[2].name }}">
+            <div id="card-2" class="detection-card side-card">
+                <div id="card-bg-2" class="card-background" style="background-image: url('{{ birds[2].image_url }}');"></div>
+                <img id="img-2" class="bird-image" src="{{ birds[2].image_url }}" alt="Image of bird">
                 <div class="card-content-overlay">
-                    <div><h2>{{ birds[2].name }}</h2></div>
+                    <div><h2 id="name-2">{{ birds[2].name }}</h2></div>
                     <div class="card-footer">
-                         <div class="footer-text"><p class="time-display">{{ birds[2].time_display }}</p><p class="copyright-display">{{ birds[2].copyright }}</p></div>
-                         {% if not api_is_down %}
-                         <div class="confidence-circle-container" data-confidence="{{ birds[2].confidence_value }}">
-                           <svg class="confidence-circle" viewBox="0 0 36 36"><path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><text x="18" y="22" class="circle-text">{{ birds[2].confidence }}</text></svg>
+                        <div class="footer-text"><p id="time-2" class="time-display">{{ birds[2].time_display }}</p></div>
+                        <div class="footer-right">
+                            <p id="copyright-2" class="copyright-display"></p>
+                            <div id="confidence-container-2" class="confidence-circle-container" data-confidence="{{ birds[2].confidence_value }}"></div>
                         </div>
-                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% if birds and birds[3] %}
+            <div id="card-3" class="detection-card side-card">
+                 <div id="card-bg-3" class="card-background" style="background-image: url('{{ birds[3].image_url }}');"></div>
+                <img id="img-3" class="bird-image" src="{{ birds[3].image_url }}" alt="Image of bird">
+                <div class="card-content-overlay">
+                    <div><h2 id="name-3">{{ birds[3].name }}</h2></div>
+                    <div class="card-footer">
+                        <div class="footer-text"><p id="time-3" class="time-display">{{ birds[3].time_display }}</p></div>
+                        <div class="footer-right">
+                            <p id="copyright-3" class="copyright-display"></p>
+                            <div id="confidence-container-3" class="confidence-circle-container" data-confidence="{{ birds[3].confidence_value }}"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -143,70 +171,228 @@
 
     <div id="qrModal" class="modal-overlay">
         <div class="modal-content">
-            <h2>Connect to me</h2>
+            <div id="mic-status-icon" title="Microphone Status">
+                <svg viewBox="0 0 24 24"><path d="M12,14c1.66,0,3-1.34,3-3V5c0-1.66-1.34-3-3-3S9,3.34,9,5v6C9,12.66,10.34,14,12,14z M17.3,11c0,3-2.54,5.1-5.3,5.1 S6.7,14,6.7,11H5c0,3.41,2.72,6.23,6,6.72V21h2v-3.28c3.28-0.49,6-3.31,6-6.72H17.3z"/></svg>
+            </div>
+            <button id="settings-icon-btn" title="Open Settings">
+                <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.22,5.72C8.63,5.96,8.1,6.29,7.6,6.67L5.22,5.71C5,5.64,4.75,5.7,4.63,5.92L2.71,9.24 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.82,11.69,4.8,12,4.8,12.31c0,0.31,0.02,0.63,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.38,2.91 c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.48-0.41l0.38-2.91c0.59-0.24,1.12-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0.02,0.59-0.22l1.92-3.32c0.12-0.2,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+            </button>
+            <h2>More details</h2>
             <img id="qrImage" src="" alt="Server Address QR Code">
             <p id="qrUrlText"></p>
         </div>
     </div>
-
+    
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Settings</h2>
+            <div class="settings-group">
+                <label>Display Layout</label>
+                <div class="layout-btn-group">
+                    <button class="layout-btn" data-layout="1">1 Bird</button>
+                    <button class="layout-btn" data-layout="3">3 Birds</button>
+                    <button class="layout-btn" data-layout="4e">4 Tall</button>
+                    <button class="layout-btn" data-layout="4g">4 Grid</button>
+                </div>
+            </div>
+            <div class="settings-group">
+                <label for="brightness-slider">Screen Brightness</label>
+                <input type="range" id="brightness-slider" min="15" max="255" value="255">
+            </div>
+            <div class="system-buttons">
+                <button id="restart-btn" class="system-btn restart-btn">Restart</button>
+                <button id="power-btn" class="system-btn power-btn">Power Off</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="confirmModal" class="modal-overlay">
+        <div class="modal-content">
+            <p id="confirmMessage"></p>
+            <div id="confirmButtons">
+                <button id="cancelBtn">Cancel</button>
+                <button id="confirmBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+    
     <script>
-        // This script handles the confidence circles
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.confidence-circle-container').forEach(container => {
-                const confidence = parseInt(container.dataset.confidence, 10) || 0;
-                const svg = container.querySelector('svg');
-                if (!svg) return;
-                const progressCircle = svg.querySelector('.circle-progress');
-                const textElement = svg.querySelector('.circle-text');
-                const circumference = 99.99; // 2 * pi * 15.9155
+            // --- LAYOUT LOGIC ---
+            const savedLayout = localStorage.getItem('birdLayout') || '3';
+            
+            function applyLayout(layout) {
+                document.body.className = `layout-${layout}`;
+                document.querySelectorAll('.layout-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.layout === layout);
+                });
+            }
+
+            document.querySelectorAll('.layout-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const layout = btn.dataset.layout;
+                    localStorage.setItem('birdLayout', layout);
+                    window.location.reload(); 
+                });
+            });
+            applyLayout(savedLayout);
+            
+            // --- MODALS AND SETTINGS ---
+            const qrModal = document.getElementById('qrModal');
+            const settingsModal = document.getElementById('settingsModal');
+            const confirmModal = document.getElementById('confirmModal');
+            let confirmAction = null;
+            const qrImage = document.getElementById('qrImage');
+            const qrUrlText = document.getElementById('qrUrlText');
+            let timeoutId;
+            qrImage.src = '/qr_code.png';
+            qrUrlText.textContent = {{ server_url | tojson }};
+
+            function hideQrModal() { qrModal.style.display = 'none'; if (timeoutId) { clearTimeout(timeoutId); } }
+            function showQrModal() { qrModal.style.display = 'flex'; timeoutId = setTimeout(hideQrModal, 30000); }
+            document.querySelector('.main-layout').addEventListener('click', showQrModal);
+            qrModal.addEventListener('click', e => { if (e.target === qrModal) hideQrModal(); });
+
+            function hideSettingsModal() { settingsModal.style.display = 'none'; }
+            function showSettingsModal() { settingsModal.style.display = 'flex'; }
+            document.getElementById('settings-icon-btn').addEventListener('click', showSettingsModal);
+            settingsModal.addEventListener('click', e => { if (e.target === settingsModal) hideSettingsModal(); });
+
+            function showConfirmModal(message, action) {
+                document.getElementById('confirmMessage').textContent = message;
+                confirmAction = action;
+                confirmModal.style.display = 'flex';
+            }
+            document.getElementById('cancelBtn').addEventListener('click', () => { confirmModal.style.display = 'none'; confirmAction = null; });
+            document.getElementById('confirmBtn').addEventListener('click', () => {
+                if (confirmAction) confirmAction();
+                confirmModal.style.display = 'none'; confirmAction = null;
+            });
+
+            document.getElementById('brightness-slider').addEventListener('input', e => {
+                fetch('/brightness', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ brightness: e.target.value })
+                });
+            });
+            document.getElementById('restart-btn').addEventListener('click', () => {
+                showConfirmModal('Are you sure you want to restart the system?', () => {
+                    fetch('/reboot', { method: 'POST' });
+                    document.body.innerHTML = '<h1>System is restarting...</h1>';
+                });
+            });
+            document.getElementById('power-btn').addEventListener('click', () => {
+                showConfirmModal('Are you sure you want to power off the system?', () => {
+                    fetch('/poweroff', { method: 'POST' });
+                    document.body.innerHTML = '<h1>System is shutting down...</h1>';
+                });
+            });
+            
+            const micIcon = document.getElementById('mic-status-icon');
+            async function checkAudioStatus() {
+                try {
+                    const response = await fetch('/audio_status');
+                    const data = await response.json();
+                    if (data.connected) {
+                        micIcon.classList.add('connected');
+                        micIcon.classList.remove('disconnected');
+                        micIcon.title = "Microphone Connected";
+                    } else {
+                        micIcon.classList.add('disconnected');
+                        micIcon.classList.remove('connected');
+                        micIcon.title = "Microphone Disconnected";
+                    }
+                } catch (error) {
+                    micIcon.classList.add('disconnected');
+                    micIcon.classList.remove('connected');
+                    micIcon.title = "Microphone Status Unknown";
+                }
+            }
+
+            // --- DYNAMIC DATA REFRESH LOGIC ---
+            const refreshIntervalMs = {{ refresh_interval * 1000 }};
+
+            function updateConfidenceCircle(index, confidence) {
+                const container = document.getElementById(`confidence-container-${index}`);
+                if (!container) return;
+                container.dataset.confidence = confidence;
+                const isMain = index === 0 && savedLayout !== '4g';
+                const textClass = isMain ? 'main-card' : '';
+                container.innerHTML = `<svg class="confidence-circle" viewBox="0 0 36 36"><path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" /><text x="18" y="22" class="circle-text ${textClass}">${confidence}%</text></svg>`;
+                const progressCircle = container.querySelector('.circle-progress');
+                const textElement = container.querySelector('.circle-text');
+                const circumference = 99.99;
                 progressCircle.style.strokeDasharray = `${circumference}, ${circumference}`;
                 progressCircle.style.strokeDashoffset = circumference - (confidence / 100) * circumference;
-                let color = '#ef4444'; // low
+                let color = '#ef4444';
                 if (confidence >= 70) { color = '#22c55e'; } else if (confidence >= 50) { color = '#f97316'; }
                 progressCircle.style.stroke = color;
                 textElement.style.fill = color;
-            });
-        });
+            }
 
-        // This new script handles the QR Code modal
-        document.addEventListener('DOMContentLoaded', function() {
-            const modal = document.getElementById('qrModal');
-            const qrImage = document.getElementById('qrImage');
-            const qrUrlText = document.getElementById('qrUrlText');
-            
-            let isModalVisible = false;
-            let timeoutId;
-
-            function hideModal() {
-                modal.style.display = 'none';
-                isModalVisible = false;
-                if (timeoutId) {
-                    clearTimeout(timeoutId);
+            function updateCard(index, bird) {
+                const card = document.getElementById(`card-${index}`);
+                if (!card) return;
+                if (!bird) {
+                    card.style.display = 'none';
+                    return;
                 }
-            }
+                card.style.display = '';
 
-            function showModal() {
-                // Set content
-                // By adding a timestamp we ensure the browser doesn't use a cached QR code
-                qrImage.src = '/qr_code.png?' + new Date().getTime(); 
-                qrUrlText.textContent = {{ server_url | tojson }};
-
-                // Show modal
-                modal.style.display = 'flex';
-                isModalVisible = true;
-
-                // Set timeout to hide modal after 30 seconds
-                timeoutId = setTimeout(hideModal, 30000); 
-            }
-
-            // Add click listener to the whole document
-            document.body.addEventListener('click', function(event) {
-                if (isModalVisible) {
-                    hideModal();
+                const mainImage = document.getElementById(`img-${index}`);
+                const bgImage = document.getElementById(`card-bg-${index}`);
+                if (mainImage.src !== bird.image_url) {
+                    const tempImg = new Image();
+                    tempImg.onload = function() {
+                        mainImage.style.opacity = 0; bgImage.style.opacity = 0;
+                        setTimeout(() => {
+                            mainImage.src = tempImg.src;
+                            bgImage.style.backgroundImage = `url('${tempImg.src}')`;
+                            mainImage.style.opacity = 1; bgImage.style.opacity = 1;
+                        }, 250);
+                    };
+                    tempImg.src = bird.image_url;
+                }
+                document.getElementById(`name-${index}`).textContent = bird.name;
+                document.getElementById(`time-${index}`).textContent = bird.time_display;
+                const copyrightElem = document.getElementById(`copyright-${index}`);
+                if (bird.copyright && bird.copyright.trim() !== "") {
+                    copyrightElem.textContent = bird.copyright;
+                    copyrightElem.style.display = "block";
                 } else {
-                    showModal();
+                    copyrightElem.textContent = "";
+                    copyrightElem.style.display = "none";
                 }
-            });
+                updateConfidenceCircle(index, bird.confidence_value);
+            }
+
+            async function fetchAndUpdate() {
+                try {
+                    const response = await fetch('/data');
+                    if (!response.ok) { console.error("Failed to fetch data, status:", response.status); return; }
+                    const data = await response.json();
+                    for (let i = 0; i < 4; i++) { updateCard(i, data.birds[i]); }
+                } catch (error) { console.error("Error fetching update:", error); }
+            }
+
+            // Initial setup for circles and copyright that were rendered by the server
+            {% for i in range(4) %}
+                {% if birds and birds[i] %}
+                    updateConfidenceCircle({{ i }}, {{ birds[i].confidence_value }});
+                    const copyrightElem{{ i }} = document.getElementById('copyright-{{ i }}');
+                    const copyrightText{{ i }} = "{{ birds[i].copyright }}";
+                    if (copyrightText{{ i }} && copyrightText{{ i }}.trim() !== "") {
+                        copyrightElem{{ i }}.textContent = copyrightText{{ i }};
+                        copyrightElem{{ i }}.style.display = "block";
+                    } else {
+                        copyrightElem{{ i }}.style.display = "none";
+                    }
+                {% endif %}
+            {% endfor %}
+            
+            checkAudioStatus();
+            setInterval(checkAudioStatus, 5000);
+            setInterval(fetchAndUpdate, refreshIntervalMs);
         });
     </script>
 </body>
