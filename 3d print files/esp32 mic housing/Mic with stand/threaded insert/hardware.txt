@@ -1,0 +1,6 @@
+Seeed Studio Xiao ESP32C5 (https://wiki.seeedstudio.com/xiao_esp32c6_getting_started/)
+Adafruit I2S MEMS Microphone Breakout - SPH0645LM4H (https://www.adafruit.com/product/3421)
+
+4x M2.5x6mm countersunk head screws
+2x M2.5x4mm button head screws
+6x Threaded inserts M2.5xD3.5xL3

@@ -1,0 +1,14 @@
+4x Threaded inserts M2.5xD3.5xL3
+4x M2.5x8mm button head screws
+4x M2.5x4mm button head screws
+2x M2.5x4mm countersunk head screws
+2x M2.5x8mm countersunk head screws
+2x M2x6mm Button head screws
+
+RPI 4B is confirmed other Pis might not fit (mainly thinking about the usb wifi adaptor)
+5" DSI touch screen (eg. https://www.aliexpress.com/item/1005007091586628.html)
+USB-C connector holes perpendicular to connector (eg. D-type of https://www.aliexpress.com/item/1005005010606562.html)
+Heatsink I used:
+	- GeeekPi Armor lite heatsink for Raspberry Pi 4 (https://52pi.com/products/52pi-cnc-extreme-heatsink-with-pwm-fan-for-raspberry-pi-4) though I had to drill out the threaded holes to mount it to the screen
+
+others will probably work but mounting them to the pi and the pi to the screen may be a challenge
