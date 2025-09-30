@@ -7,10 +7,13 @@ A Python-based web application designed to run on a Raspberry Pi alongside BirdN
 Here are some shots of the completed system in its 3d printed enclosure.
 
 **Front:**
-![System Front](screenshots/system%20front.png)
+![System Front](images/system%20front.png)
 
 **Side:**
-![System Side](screenshots/system%20side.png)
+![System Side](images/system%20side.png)
+
+**Internals:**
+![System Internals](images/system%20internals.png)
 
 ## Screenshots
 
@@ -18,25 +21,25 @@ Here are some shots of the completed system in its 3d printed enclosure.
 
 The online version shows the most recently detected unique birds, each with their confidence value as reported by BirdNET-Pi.
 
-![Main Interface (Online)](screenshots/main_interface_online.png)
+![Main Interface (Online)](images/main_interface_online.png)
 
 **Offline Mode:**
 
 The offline version displays a random assortment of birds native to the area, using cached images and information.
 
-![Main Interface (Offline)](screenshots/main_interface_offline.png)
+![Main Interface (Offline)](images/main_interface_offline.png)
 
 **QR Code Overlay:**
 
 The interface also displays the IP address of the Pi as a QR code for easy access from other devices.
 
-![QR Code Overlay](screenshots/qr%20code%20overlay.png)
+![QR Code Overlay](images/qr%20code%20overlay.png)
 
 **Settings Modal:**
 
 The settings modal allows you to control the display and system.
 
-![Settings Modal](screenshots/settings%20modal.png)
+![Settings Modal](images/settings%20modal.png)
 
 ## Features
 - Designed for Raspberry Pi with a connected display.
