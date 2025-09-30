@@ -172,6 +172,7 @@ The web interface provides several interactive controls accessible by clicking o
 ## Project Structure
 ```
 .
+├── 3d print files          # 3D printable enclosure files
 ├── birdnet_display.py      # Main Flask application
 ├── ap_setup.sh             # Script to configure a Wi-Fi hotspot
 ├── cache_builder.py        # Script to build the image cache
@@ -185,6 +186,30 @@ The web interface provides several interactive controls accessible by clicking o
     ├── index.html          # Web interface
     └── bird_images_cache/  # Cached bird images
 ```
+
+## 3D Printed Files
+
+This project includes 3D printable enclosure files (typically in .3mf format) for housing the Raspberry Pi and display. These files are designed with the following considerations:
+
+-   **No Supports Needed:** The models are oriented in the .3mf files to be printed without the need for support material.
+-   **Mounting Options:** Designs include options for either directly threading machine screws into the plastic or using heat-set threaded inserts for a more robust assembly.
+
+### Required Hardware
+
+For the main housing, you will need:
+
+- RPI 4B is confirmed other Pis might not fit (mainly thinking about the usb wifi adaptor)
+- 5" DSI touch screen (eg. https://www.aliexpress.com/item/1005007091586628.html)
+- USB-C connector holes perpendicular to connector (eg. D-type of https://www.aliexpress.com/item/1005005010606562.html)
+- Heatsink I used:
+	- GeeekPi Armor lite heatsink for Raspberry Pi 4 (https://52pi.com/products/52pi-cnc-extreme-heatsink-with-pwm-fan-for-raspberry-pi-4) though I had to drill out the threaded holes to allow mount the RPi to the screen
+
+- 4x Threaded inserts M2.5xD3.5xL3
+- 4x M2.5x8mm button head screws
+- 4x M2.5x4mm button head screws
+- 2x M2.5x4mm countersunk head screws
+- 2x M2.5x8mm countersunk head screws
+- 2x M2x6mm Button head screws
 
 ## Troubleshooting
 
