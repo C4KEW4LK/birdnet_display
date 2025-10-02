@@ -54,7 +54,8 @@ def save_pinned_species(pinned_data):
 def add_pinned_species(species_name):
     """Add a species to the pinned list with 24-hour expiration."""
     pinned = load_pinned_species()
-    if species_name not in pinned or pinned[species_name].get('dismissed', False):
+    # Only add if not already present (dismissed or not)
+    if species_name not in pinned:
         pinned[species_name] = {
             'pinned_until': (datetime.now() + timedelta(hours=PINNED_DURATION_HOURS)).isoformat(),
             'dismissed': False
@@ -65,7 +66,7 @@ def dismiss_pinned_species(species_name):
     """Mark a pinned species as dismissed."""
     pinned = load_pinned_species()
     if species_name in pinned:
-        del pinned[species_name]
+        pinned[species_name]['dismissed'] = True
         save_pinned_species(pinned)
         return True
     return False
@@ -131,6 +132,14 @@ def format_seconds_ago(total_seconds):
     return f"{int(hours / 24)}d ago"
 
 # --- Data Parsing and API Helpers ---
+def check_image_url_fast(url):
+    """Quick check if an image URL is accessible with very short timeout."""
+    try:
+        response = requests.head(url, timeout=0.5)
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False
+
 def parse_v2_detection_item(detection, server_ip):
     try:
         name = detection.get('commonName', 'Unknown Species')
@@ -139,6 +148,7 @@ def parse_v2_detection_item(detection, server_ip):
         species_code = detection.get('speciesCode')
         image_url = f"http://{server_ip}:8080/api/v2/species/{species_code}/thumbnail" if species_code else ""
         is_new_species = detection.get('isNewSpecies', False)
+
         return {
             "name": name, "time_raw": time_raw, "confidence_value": confidence_value,
             "image_url": image_url, "copyright": "", "is_new_species": is_new_species
@@ -226,6 +236,21 @@ def get_bird_data():
         # Combine: pinned first, then unpinned, limit to 4
         final_list = pinned_birds + unique_unpinned
         final_list = final_list[:4]
+
+        # Check image URLs for only these final 4 birds
+        for bird in final_list:
+            if bird.get('image_url'):
+                if not check_image_url_fast(bird['image_url']):
+                    cached_asset = get_cached_image(bird['name'])
+                    if cached_asset:
+                        bird['image_url'] = cached_asset['image_url']
+                        bird['copyright'] = cached_asset['copyright']
+            else:
+                # No image URL, use cache
+                cached_asset = get_cached_image(bird['name'])
+                if cached_asset:
+                    bird['image_url'] = cached_asset['image_url']
+                    bird['copyright'] = cached_asset['copyright']
 
         new_id = "-".join([f"{d['name']}_{d['time_raw']}" for d in final_list])
 
@@ -347,6 +372,18 @@ def dismiss_pinned(species_name):
         return jsonify({'status': 'success', 'message': f'{species_name} dismissed'})
     else:
         return jsonify({'status': 'error', 'message': f'{species_name} not found in pinned list'}), 404
+
+@app.route('/api/dismiss_all_pinned', methods=['POST'])
+def dismiss_all_pinned():
+    """Dismiss all pinned species."""
+    try:
+        pinned = load_pinned_species()
+        for species_name in pinned:
+            pinned[species_name]['dismissed'] = True
+        save_pinned_species(pinned)
+        return jsonify({'status': 'success', 'message': 'All pinned species dismissed'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 # --- Main Execution ---
