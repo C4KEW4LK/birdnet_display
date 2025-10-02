@@ -8,11 +8,20 @@ from bs4 import BeautifulSoup
 
 # --- Constants and Configuration ---
 CACHE_DIRECTORY = "static/bird_images_cache"
-SPECIES_FILE = "species_list.csv" 
+SPECIES_FILE = "species_list.csv"
 IMAGES_PER_SPECIES = 3
+BIRDNET_API_BASE = "http://localhost:8080"
+MIN_IMAGE_WIDTH = 800
+MIN_IMAGE_HEIGHT = 600
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
 }
+
+# Color codes for terminal output
+YELLOW = '\033[1;33m'
+RED = '\033[0;31m'
+GREEN = '\033[0;32m'
+NC = '\033[0m'  # No Color
 
 # --- Helper Functions ---
 def format_author_name(author_str):
@@ -20,7 +29,7 @@ def format_author_name(author_str):
     cleaned_author = author_str.split('[a]')[0].strip()
     if len(cleaned_author) > 20:
         cut_off_point = cleaned_author.rfind(' ', 0, 20)
-        return cleaned_author[:cut_off_point] + "..." if cut_off_point != -1 else cleaned_author[:20] + "..."
+        return cleaned_author[:cut_off_point] + " ..." if cut_off_point != -1 else cleaned_author[:20] + " ..."
     return cleaned_author
 
 def load_species_from_file(filename):
@@ -39,7 +48,146 @@ def load_species_from_file(filename):
         print(f"Error reading or parsing species CSV file '{filename}': {e}")
         return []
 
+def check_location_settings():
+    """Check if location is set in BirdNET-Go settings."""
+    settings_url = f"{BIRDNET_API_BASE}/api/v2/settings"
+    try:
+        response = requests.get(settings_url, timeout=10)
+        response.raise_for_status()
+        settings = response.json()
+
+        # Navigate to birdnet section for lat/lon
+        birdnet_settings = settings.get('birdnet', {})
+        latitude = birdnet_settings.get('latitude')
+        longitude = birdnet_settings.get('longitude')
+
+        # Check if location is set to reasonable values
+        # Not set if: missing keys, null, zero, or outside valid ranges
+        if latitude is None or longitude is None:
+            return False
+        if latitude == 0 and longitude == 0:
+            return False
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            return False
+
+        print(f"[INFO] Location configured: Lat {latitude}, Lon {longitude}")
+        return True
+    except requests.exceptions.RequestException:
+        print(f"{YELLOW}[WARNING] Could not verify location settings{NC}")
+        return None  # Unknown state
+
+def fetch_species_from_api():
+    """Fetches species list from BirdNET-Go API."""
+    api_url = f"{BIRDNET_API_BASE}/api/v2/range/species/list"
+    try:
+        print(f"[INFO] Fetching species list from {api_url}")
+        response = requests.get(api_url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        species_list = []
+        for species in data.get('species', []):
+            common_name = species.get('commonName', '').strip()
+            scientific_name = species.get('scientificName', '').strip()
+            if common_name and scientific_name:
+                species_list.append((common_name, scientific_name))
+        print(f"[INFO] Found {len(species_list)} species from API")
+        return species_list
+    except requests.exceptions.ConnectionError:
+        print(f"{RED}[ERROR] Cannot connect to BirdNET-Go at {BIRDNET_API_BASE}{NC}")
+        print(f"{RED}[ERROR] Please ensure BirdNET-Go is running and accessible{NC}")
+        return None
+    except requests.exceptions.Timeout:
+        print(f"{RED}[ERROR] Connection to {BIRDNET_API_BASE} timed out{NC}")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"{RED}[ERROR] Failed to fetch species from API: {e}{NC}")
+        return None
+
+def save_species_to_file(species_list, filename):
+    """Saves species list to CSV file."""
+    try:
+        with open(filename, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Common Name', 'Scientific Name'])
+            for common_name, scientific_name in species_list:
+                writer.writerow([common_name, scientific_name])
+        print(f"{GREEN}[INFO] Saved {len(species_list)} species to {filename}{NC}")
+        return True
+    except IOError as e:
+        print(f"{RED}[ERROR] Failed to save species to file: {e}{NC}")
+        return False
+
+def update_species_list_from_api():
+    """Updates species_list.csv from BirdNET-Go API with user confirmation."""
+    # Check location settings first
+    location_set = check_location_settings()
+    if location_set is False:
+        print(f"\n{YELLOW}[WARNING] It looks like the location used for range data is not set in BirdNET-Go.{NC}")
+        print(f"{YELLOW}[WARNING] The species list may not be accurate for your location.{NC}")
+        confirm = input("Would you still like to continue? (yes/no): ").strip().lower()
+        if confirm not in ['yes', 'y']:
+            print("[INFO] Operation cancelled by user")
+            return False
+
+    species_list = fetch_species_from_api()
+    if not species_list:
+        print(f"{RED}[ERROR] Could not fetch species list from API{NC}")
+        return False
+
+    # Check if file exists
+    file_exists = os.path.exists(SPECIES_FILE)
+    if file_exists:
+        print(f"\n{YELLOW}[WARNING] This will overwrite the existing '{SPECIES_FILE}' file.{NC}")
+        existing_list = load_species_from_file(SPECIES_FILE)
+        print(f"Current file has {len(existing_list)} species, API has {len(species_list)} species.")
+    else:
+        print(f"\n'{SPECIES_FILE}' does not exist. A new file will be created.")
+
+    confirm = input("Do you want to continue? (yes/no): ").strip().lower()
+    if confirm not in ['yes', 'y']:
+        print("[INFO] Operation cancelled by user")
+        return False
+
+    return save_species_to_file(species_list, SPECIES_FILE)
+
 # --- Web Scraping and Downloading ---
+def find_optimal_image_size(page_soup):
+    """Find the smallest image size that meets minimum requirements from Wikimedia page."""
+    # Look for the "Other resolutions" section
+    resolution_span = page_soup.find('span', class_='mw-filepage-other-resolutions')
+    if not resolution_span:
+        return None
+
+    # Find all resolution links
+    resolution_links = resolution_span.find_all('a', class_='mw-thumbnail-link')
+    suitable_images = []
+
+    for link in resolution_links:
+        url = link.get('href', '')
+        text = link.get_text(strip=True)
+
+        # Parse dimensions like "1,024 × 1,024 pixels" or "768 × 768 pixels"
+        match = re.search(r'([\d,]+)\s*×\s*([\d,]+)', text)
+        if match:
+            width = int(match.group(1).replace(',', ''))
+            height = int(match.group(2).replace(',', ''))
+
+            # Check if meets minimum requirements
+            if width >= MIN_IMAGE_WIDTH and height >= MIN_IMAGE_HEIGHT:
+                suitable_images.append({
+                    'url': url,
+                    'width': width,
+                    'height': height,
+                    'total_pixels': width * height
+                })
+
+    # Sort by total pixels (ascending) and return the smallest suitable one
+    if suitable_images:
+        suitable_images.sort(key=lambda x: x['total_pixels'])
+        return suitable_images[0]['url']
+
+    return None
+
 def _fetch_and_parse_wikimedia_search(search_query, num_images):
     """Helper function to perform a single search query on Wikimedia and parse results."""
     base_url = "https://commons.wikimedia.org"
@@ -54,11 +202,12 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images):
             file_page_url = urljoin(base_url, result_a_tag.get('href', ''))
             img_tag = result_a_tag.find('img')
             if not file_page_url or not img_tag or not img_tag.get('data-src'): continue
-            thumbnail_url = img_tag['data-src']
-            full_res_url = thumbnail_url.replace('/thumb', '').rsplit('/', 1)[0]
+
             try:
                 page_response = requests.get(file_page_url, headers={'User-Agent': HEADERS['User-Agent']}, timeout=10)
                 page_soup = BeautifulSoup(page_response.text, 'html.parser')
+
+                # Get attribution
                 attribution = "Wikimedia Commons"
                 author_header = page_soup.find('td', string=re.compile(r'^\s*Author\s*$'))
                 if author_header and author_header.find_next_sibling('td'):
@@ -66,7 +215,22 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images):
                     attribution = attribution_cell.get_text(strip=True, separator=' ').split('(')[0].strip()
                 formatted_attribution = format_author_name(attribution)
                 final_attribution = f"© {formatted_attribution}" if formatted_attribution else "© Wikimedia Commons"
-                image_data.append({'url': full_res_url, 'attribution': final_attribution})
+
+                # Find optimal image size
+                optimal_url = find_optimal_image_size(page_soup)
+                if optimal_url:
+                    # Make sure it's an absolute URL
+                    if optimal_url.startswith('//'):
+                        optimal_url = 'https:' + optimal_url
+                    elif optimal_url.startswith('/'):
+                        optimal_url = base_url + optimal_url
+                    image_data.append({'url': optimal_url, 'attribution': final_attribution})
+                else:
+                    # Fallback to full resolution if optimal size not found
+                    thumbnail_url = img_tag['data-src']
+                    full_res_url = thumbnail_url.replace('/thumb', '').rsplit('/', 1)[0]
+                    image_data.append({'url': full_res_url, 'attribution': final_attribution})
+
             except requests.exceptions.RequestException: continue
         return image_data
     except requests.exceptions.RequestException as e:
@@ -121,7 +285,7 @@ def ensure_cache_is_built():
     print("--- Image cache check complete. ---")
 
 def resize_cached_images():
-    """Resizes large images in the cache to fit within a bounding box."""
+    """Resizes large images to fill the target screen size while maintaining aspect ratio."""
     print("--- Checking and resizing large cached images... ---")
     target_width = 800
     target_height = 600
@@ -132,10 +296,17 @@ def resize_cached_images():
                 try:
                     with Image.open(image_path) as img:
                         w, h = img.size
-                        if w <= target_width and h <= target_height: continue 
-                        scale = min(target_width / w, target_height / h)
+
+                        # Skip if already at or below target size
+                        if w <= target_width and h <= target_height:
+                            continue
+
+                        # Calculate scale to FILL the screen (use max instead of min)
+                        # This ensures at least one dimension meets the target
+                        scale = max(target_width / w, target_height / h)
                         new_width = int(w * scale)
                         new_height = int(h * scale)
+
                         print(f"Downscaling {file} from {w}x{h} to {new_width}x{new_height}...")
                         resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                         resized_img.save(image_path)
@@ -145,6 +316,22 @@ def resize_cached_images():
 
 # This allows the script to be run directly from the command line
 if __name__ == '__main__':
+    import sys
+
+    # Check for --update-species flag
+    if '--update-species' in sys.argv:
+        print("--- Updating Species List from API ---")
+        if update_species_list_from_api():
+            print("[SUCCESS] Species list updated successfully")
+            # Ask if user wants to continue with cache building
+            build_cache = input("\nDo you want to build the cache now? (yes/no): ").strip().lower()
+            if build_cache not in ['yes', 'y']:
+                print("[INFO] Cache building skipped")
+                sys.exit(0)
+        else:
+            print("[ERROR] Failed to update species list")
+            sys.exit(1)
+
     print("--- Starting Offline Image Cache Builder ---")
     ensure_cache_is_built()
     resize_cached_images()
