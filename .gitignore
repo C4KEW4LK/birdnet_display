@@ -27,5 +27,8 @@ MANIFEST
 # VS Code settings
 .vscode/
 
+# Claude Code
+.claude/
+
 # Ignore static bird images cache
 static/bird_images_cache/
