@@ -21,6 +21,8 @@
         .time-display { font-size: 1.1em; color: #e2e8f0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 4px rgba(0,0,0,0.7); }
         .side-card .time-display { font-size: 0.9em; }
         .copyright-display { font-size: 0.8em; color: #cbd5e1; }
+        .pin-icon { position: absolute; top: 15px; right: 15px; z-index: 3; width: 32px; height: 32px; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)); }
+        .pin-icon svg { fill: #fbbf24; width: 100%; height: 100%; }
         .confidence-circle-container { position: relative; width: 50px; height: 50px; }
         .main-card .confidence-circle-container { width: 60px; height: 60px; }
         .confidence-circle { display: block; margin: 0 auto; width: 100%; height: 100%; }
@@ -86,6 +88,12 @@
         input[type="range"] { width: 100%; height: 15px; -webkit-appearance: none; background: #e2e8f0; border-radius: 8px; outline: none; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 30px; height: 30px; background: #3b82f6; cursor: pointer; border-radius: 50%; }
         input[type="range"]::-moz-range-thumb { width: 30px; height: 30px; background: #3b82f6; cursor: pointer; border-radius: 50%; border: none; }
+        .pinned-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; margin-bottom: 8px; background-color: #f8fafc; border-radius: 8px; }
+        .pinned-item-name { font-weight: 500; }
+        .pinned-item-time { font-size: 0.9em; color: #64748b; margin-left: 10px; }
+        .dismiss-btn { padding: 6px 12px; font-size: 0.9em; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .dismiss-btn:hover { background-color: #b91c1c; }
+        #pinned-species-list:empty::before { content: 'No pinned species'; color: #94a3b8; font-style: italic; display: block; padding: 10px; }
     </style>
 </head>
 <body class="">
@@ -107,9 +115,11 @@
                 <div class="card-content-overlay">
                     <div><h1 id="name-0">{{ birds[0].name }}</h1></div>
                     <div class="card-footer">
-                        <div class="footer-text"><p id="time-0" class="time-display">{{ birds[0].time_display }}</p></div>
-                        <div class="footer-right">
+                        <div class="footer-text">
+                            <p id="time-0" class="time-display">{{ birds[0].time_display }}</p>
                             <p id="copyright-0" class="copyright-display"></p>
+                        </div>
+                        <div class="footer-right">
                             <div id="confidence-container-0" class="confidence-circle-container" data-confidence="{{ birds[0].confidence_value }}"></div>
                         </div>
                     </div>
@@ -125,9 +135,11 @@
                 <div class="card-content-overlay">
                     <div><h2 id="name-1">{{ birds[1].name }}</h2></div>
                     <div class="card-footer">
-                        <div class="footer-text"><p id="time-1" class="time-display">{{ birds[1].time_display }}</p></div>
-                        <div class="footer-right">
+                        <div class="footer-text">
+                            <p id="time-1" class="time-display">{{ birds[1].time_display }}</p>
                             <p id="copyright-1" class="copyright-display"></p>
+                        </div>
+                        <div class="footer-right">
                             <div id="confidence-container-1" class="confidence-circle-container" data-confidence="{{ birds[1].confidence_value }}"></div>
                         </div>
                     </div>
@@ -141,9 +153,11 @@
                 <div class="card-content-overlay">
                     <div><h2 id="name-2">{{ birds[2].name }}</h2></div>
                     <div class="card-footer">
-                        <div class="footer-text"><p id="time-2" class="time-display">{{ birds[2].time_display }}</p></div>
-                        <div class="footer-right">
+                        <div class="footer-text">
+                            <p id="time-2" class="time-display">{{ birds[2].time_display }}</p>
                             <p id="copyright-2" class="copyright-display"></p>
+                        </div>
+                        <div class="footer-right">
                             <div id="confidence-container-2" class="confidence-circle-container" data-confidence="{{ birds[2].confidence_value }}"></div>
                         </div>
                     </div>
@@ -157,9 +171,11 @@
                 <div class="card-content-overlay">
                     <div><h2 id="name-3">{{ birds[3].name }}</h2></div>
                     <div class="card-footer">
-                        <div class="footer-text"><p id="time-3" class="time-display">{{ birds[3].time_display }}</p></div>
-                        <div class="footer-right">
+                        <div class="footer-text">
+                            <p id="time-3" class="time-display">{{ birds[3].time_display }}</p>
                             <p id="copyright-3" class="copyright-display"></p>
+                        </div>
+                        <div class="footer-right">
                             <div id="confidence-container-3" class="confidence-circle-container" data-confidence="{{ birds[3].confidence_value }}"></div>
                         </div>
                     </div>
@@ -198,6 +214,10 @@
             <div class="settings-group">
                 <label for="brightness-slider">Screen Brightness</label>
                 <input type="range" id="brightness-slider" min="15" max="255" value="255">
+            </div>
+            <div class="settings-group">
+                <label>Pinned Species</label>
+                <div id="pinned-species-list" style="max-height: 200px; overflow-y: auto;"></div>
             </div>
             <div class="system-buttons">
                 <button id="restart-btn" class="system-btn restart-btn">Restart</button>
@@ -254,7 +274,10 @@
             qrModal.addEventListener('click', e => { if (e.target === qrModal) hideQrModal(); });
 
             function hideSettingsModal() { settingsModal.style.display = 'none'; }
-            function showSettingsModal() { settingsModal.style.display = 'flex'; }
+            async function showSettingsModal() {
+                await loadPinnedSpecies();
+                settingsModal.style.display = 'flex';
+            }
             document.getElementById('settings-icon-btn').addEventListener('click', showSettingsModal);
             settingsModal.addEventListener('click', e => { if (e.target === settingsModal) hideSettingsModal(); });
 
@@ -306,6 +329,48 @@
                     micIcon.classList.add('disconnected');
                     micIcon.classList.remove('connected');
                     micIcon.title = "Microphone Status Unknown";
+                }
+            }
+
+            async function loadPinnedSpecies() {
+                try {
+                    const response = await fetch('/api/pinned_species');
+                    const pinnedList = await response.json();
+                    const container = document.getElementById('pinned-species-list');
+                    container.innerHTML = '';
+
+                    if (pinnedList.length === 0) {
+                        // Empty state is handled by CSS
+                        return;
+                    }
+
+                    pinnedList.forEach(item => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'pinned-item';
+                        itemDiv.innerHTML = `
+                            <div>
+                                <span class="pinned-item-name">${item.name}</span>
+                                <span class="pinned-item-time">(${item.hours_remaining}h remaining)</span>
+                            </div>
+                            <button class="dismiss-btn" data-species="${item.name}">Dismiss</button>
+                        `;
+                        container.appendChild(itemDiv);
+                    });
+
+                    // Add event listeners to dismiss buttons
+                    container.querySelectorAll('.dismiss-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            const speciesName = e.target.dataset.species;
+                            try {
+                                await fetch(`/api/dismiss_pinned/${encodeURIComponent(speciesName)}`, { method: 'POST' });
+                                await loadPinnedSpecies(); // Reload the list
+                            } catch (error) {
+                                console.error('Error dismissing pinned species:', error);
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error('Error loading pinned species:', error);
                 }
             }
 
@@ -363,7 +428,30 @@
                     copyrightElem.textContent = "";
                     copyrightElem.style.display = "none";
                 }
-                updateConfidenceCircle(index, bird.confidence_value);
+
+                // Hide confidence circle in offline mode
+                const confidenceContainer = document.getElementById(`confidence-container-${index}`);
+                if (bird.is_offline) {
+                    confidenceContainer.style.display = 'none';
+                } else {
+                    confidenceContainer.style.display = '';
+                    updateConfidenceCircle(index, bird.confidence_value);
+                }
+
+                // Update pin icon
+                let pinIcon = card.querySelector('.pin-icon');
+                if (bird.is_pinned) {
+                    if (!pinIcon) {
+                        pinIcon = document.createElement('div');
+                        pinIcon.className = 'pin-icon';
+                        pinIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/></svg>';
+                        card.appendChild(pinIcon);
+                    }
+                } else {
+                    if (pinIcon) {
+                        pinIcon.remove();
+                    }
+                }
             }
 
             async function fetchAndUpdate() {
@@ -378,7 +466,11 @@
             // Initial setup for circles and copyright that were rendered by the server
             {% for i in range(4) %}
                 {% if birds and birds[i] %}
-                    updateConfidenceCircle({{ i }}, {{ birds[i].confidence_value }});
+                    {% if birds[i].get('is_offline') %}
+                        document.getElementById('confidence-container-{{ i }}').style.display = 'none';
+                    {% else %}
+                        updateConfidenceCircle({{ i }}, {{ birds[i].confidence_value }});
+                    {% endif %}
                     const copyrightElem{{ i }} = document.getElementById('copyright-{{ i }}');
                     const copyrightText{{ i }} = "{{ birds[i].copyright }}";
                     if (copyrightText{{ i }} && copyrightText{{ i }}.trim() !== "") {

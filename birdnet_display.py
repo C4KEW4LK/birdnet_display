@@ -1,7 +1,7 @@
 import requests
 from flask import Flask, render_template, url_for, send_file, request, jsonify
 from urllib.parse import urljoin
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import random
 import socket
@@ -22,12 +22,72 @@ HEADERS = {
 }
 PROXIES = {"http": None, "https": None}
 SERVER_PORT = 5000
+PINNED_SPECIES_FILE = "pinned_species.json"
+PINNED_DURATION_HOURS = 24
 
 # --- Flask App Initialization ---
 app = Flask(__name__, template_folder='static')
 
 # --- Caching & Status Globals ---
 DETECTION_CACHE = { "id": None, "raw_data": [] }
+
+# --- Pinned Species Management ---
+def load_pinned_species():
+    """Load pinned species from JSON file."""
+    if not os.path.exists(PINNED_SPECIES_FILE):
+        return {}
+    try:
+        with open(PINNED_SPECIES_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (IOError, json.JSONDecodeError) as e:
+        print(f"Error loading pinned species file: {e}")
+        return {}
+
+def save_pinned_species(pinned_data):
+    """Save pinned species to JSON file."""
+    try:
+        with open(PINNED_SPECIES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(pinned_data, f, indent=2)
+    except IOError as e:
+        print(f"Error saving pinned species file: {e}")
+
+def add_pinned_species(species_name):
+    """Add a species to the pinned list with 24-hour expiration."""
+    pinned = load_pinned_species()
+    if species_name not in pinned or pinned[species_name].get('dismissed', False):
+        pinned[species_name] = {
+            'pinned_until': (datetime.now() + timedelta(hours=PINNED_DURATION_HOURS)).isoformat(),
+            'dismissed': False
+        }
+        save_pinned_species(pinned)
+
+def dismiss_pinned_species(species_name):
+    """Mark a pinned species as dismissed."""
+    pinned = load_pinned_species()
+    if species_name in pinned:
+        del pinned[species_name]
+        save_pinned_species(pinned)
+        return True
+    return False
+
+def get_active_pinned_species():
+    """Get list of currently active (not expired, not dismissed) pinned species."""
+    pinned = load_pinned_species()
+    active = {}
+    now = datetime.now()
+
+    for species_name, data in list(pinned.items()):
+        pinned_until = datetime.fromisoformat(data['pinned_until'])
+        if not data.get('dismissed', False) and now < pinned_until:
+            active[species_name] = data
+        elif now >= pinned_until:
+            # Clean up expired entries
+            del pinned[species_name]
+
+    if len(pinned) != len(active):
+        save_pinned_species(pinned)
+
+    return active
 
 # --- IP and QR Code Helpers ---
 def get_local_ip():
@@ -78,9 +138,10 @@ def parse_v2_detection_item(detection, server_ip):
         confidence_value = int(detection.get('confidence', 0.0) * 100)
         species_code = detection.get('speciesCode')
         image_url = f"http://{server_ip}:8080/api/v2/species/{species_code}/thumbnail" if species_code else ""
+        is_new_species = detection.get('isNewSpecies', False)
         return {
             "name": name, "time_raw": time_raw, "confidence_value": confidence_value,
-            "image_url": image_url, "copyright": ""
+            "image_url": image_url, "copyright": "", "is_new_species": is_new_species
         }
     except (AttributeError, TypeError, KeyError) as e:
         print(f"Warning: Could not parse a v2 detection item, skipping. Error: {e}, Data: {detection}")
@@ -115,7 +176,7 @@ def get_offline_fallback_data():
             fallback_data.append({
                 "name": common_name, "time_display": "Offline", "confidence": "0%",
                 "confidence_value": 0, "image_url": cached_asset['image_url'],
-                "copyright": cached_asset['copyright'], "time_raw": ""
+                "copyright": cached_asset['copyright'], "time_raw": "", "is_offline": True
             })
     return fallback_data
 
@@ -132,37 +193,59 @@ def get_bird_data():
         all_parsed = [d for d in [parse_v2_detection_item(item, server_ip) for item in detections] if d]
         if not all_parsed:
             return get_offline_fallback_data(), True
-        
-        top_species_names = list(dict.fromkeys(d['name'] for d in all_parsed))[:4]
-        final_list = [next(d for d in all_parsed if d['name'] == name) for name in top_species_names]
-        
-        if len(final_list) < 4 and len(all_parsed) > len(final_list):
-             names_in_list = {b['name'] for b in final_list}
-             for bird in all_parsed:
-                if len(final_list) >= 4: break
-                if bird['name'] not in names_in_list:
-                    final_list.append(bird)
-                    names_in_list.add(bird['name'])
+
+        # Process new species and add to pinned list
+        for bird in all_parsed:
+            if bird.get('is_new_species', False):
+                add_pinned_species(bird['name'])
+
+        # Get currently active pinned species
+        active_pinned = get_active_pinned_species()
+
+        # Separate pinned and unpinned birds
+        pinned_birds = []
+        unpinned_birds = []
+
+        for bird in all_parsed:
+            if bird['name'] in active_pinned:
+                bird['is_pinned'] = True
+                if bird['name'] not in [b['name'] for b in pinned_birds]:
+                    pinned_birds.append(bird)
+            else:
+                bird['is_pinned'] = False
+                unpinned_birds.append(bird)
+
+        # Get unique unpinned species (deduplicate by name)
+        unique_unpinned = []
+        seen_names = set()
+        for bird in unpinned_birds:
+            if bird['name'] not in seen_names:
+                unique_unpinned.append(bird)
+                seen_names.add(bird['name'])
+
+        # Combine: pinned first, then unpinned, limit to 4
+        final_list = pinned_birds + unique_unpinned
+        final_list = final_list[:4]
 
         new_id = "-".join([f"{d['name']}_{d['time_raw']}" for d in final_list])
-        
+
         if new_id == DETECTION_CACHE["id"]:
             data_to_process = DETECTION_CACHE["raw_data"]
         else:
             DETECTION_CACHE["raw_data"] = final_list
             DETECTION_CACHE["id"] = new_id
             data_to_process = final_list
-            
+
         display_data = []
         for bird in data_to_process:
             bird_display_copy = bird.copy()
             bird_display_copy['time_display'] = format_seconds_ago(parse_absolute_time_to_seconds_ago(bird['time_raw']))
             bird_display_copy['confidence'] = f"{bird['confidence_value']}%"
             display_data.append(bird_display_copy)
-        
+
         return display_data, False
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching data from API v2: {e}")
+    except requests.exceptions.RequestException:
+        print("[INFO] BirdNET-Go API unavailable, using offline mode")
         return get_offline_fallback_data(), True
 
 # --- Flask Routes ---
@@ -194,8 +277,8 @@ def audio_status():
         response.raise_for_status()
         status_data = response.json()
         is_connected = status_data.get("streaming") is True
-    except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError) as e:
-        print(f"Could not get or parse audio status from {status_url}: {e}")
+    except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError):
+        print("[INFO] Microphone status unavailable")
         is_connected = False
     return jsonify({"connected": is_connected})
 
@@ -235,6 +318,35 @@ def poweroff_system():
     print("Executing power off command...")
     os.system('sudo poweroff')
     return jsonify({'status': 'shutting down'})
+
+@app.route('/api/pinned_species')
+def get_pinned_species():
+    """Return list of currently pinned species with time remaining."""
+    active_pinned = get_active_pinned_species()
+    now = datetime.now()
+    result = []
+
+    for species_name, data in active_pinned.items():
+        pinned_until = datetime.fromisoformat(data['pinned_until'])
+        time_remaining = pinned_until - now
+        hours_remaining = int(time_remaining.total_seconds() / 3600)
+
+        result.append({
+            'name': species_name,
+            'hours_remaining': hours_remaining,
+            'pinned_until': data['pinned_until']
+        })
+
+    return jsonify(result)
+
+@app.route('/api/dismiss_pinned/<species_name>', methods=['POST'])
+def dismiss_pinned(species_name):
+    """Dismiss a pinned species."""
+    success = dismiss_pinned_species(species_name)
+    if success:
+        return jsonify({'status': 'success', 'message': f'{species_name} dismissed'})
+    else:
+        return jsonify({'status': 'error', 'message': f'{species_name} not found in pinned list'}), 404
 
 
 # --- Main Execution ---
