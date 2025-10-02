@@ -94,18 +94,30 @@ else
     echo -e "${GREEN}✅ Existing species_list.csv found.${NC}"
 fi
 
-# --- Step 7: Build and Resize Image Cache ---
-echo -e "\n${YELLOW}Step 7: Building and resizing the offline image cache...${NC}"
+# --- Step 7: Update Species List from API (Optional) ---
+echo ""
+read -p "Do you want to fetch the species list from BirdNET-Go API? (y/N) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "\n${YELLOW}Fetching species list from BirdNET-Go API...${NC}"
+    "$INSTALL_DIR/venv/bin/python3" "$INSTALL_DIR/cache_builder.py" --update-species
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}WARNING: Failed to fetch species list from API. Continuing with existing species_list.csv${NC}"
+    fi
+fi
+
+# --- Step 8: Build and Resize Image Cache ---
+echo -e "\n${YELLOW}Step 8: Building and resizing the offline image cache...${NC}"
 echo -e "${YELLOW}This may take a few minutes depending on your internet connection and species list size.${NC}"
-"$INSTALL_DIR/venv/bin/python3" "$INSTALL_DIR/birdnet_display.py" --build-cache
+"$INSTALL_DIR/venv/bin/python3" "$INSTALL_DIR/cache_builder.py"
 if [ $? -ne 0 ]; then
     echo -e "${RED}ERROR: Failed to build and resize the image cache. Please check for errors above.${NC}"
     exit 1
 fi
 echo -e "${GREEN}✅ Offline image cache is ready.${NC}"
 
-# --- Step 8: Create Run Script ---
-echo -e "\n${YELLOW}Step 8: Creating run.sh script...${NC}"
+# --- Step 9: Create Run Script ---
+echo -e "\n${YELLOW}Step 9: Creating run.sh script...${NC}"
 cat > "$INSTALL_DIR/run.sh" << EOF
 #!/bin/bash
 # This script activates the virtual environment and starts the Flask server.
@@ -117,7 +129,7 @@ EOF
 chmod +x "$INSTALL_DIR/run.sh"
 echo -e "${GREEN}✅ run.sh created and made executable.${NC}"
 
-# --- Step 9: Optional Raspberry Pi Kiosk Setup ---
+# --- Step 10: Optional Raspberry Pi Kiosk Setup ---
 echo ""
 read -p "Are you setting this up on a Raspberry Pi for a kiosk display? (y/N) " -n 1 -r
 echo
@@ -194,8 +206,9 @@ EOF
     REBOOT_REQUIRED=true
 fi
 
-# --- Step 10: Optional BirdNET-Go Network Configuration ---
+# --- Step 11: Optional BirdNET-Go Network Configuration ---
 echo ""
+echo -e "${YELLOW}Note: This is only required if using a dedicated network interface for the RTSP microphone.${NC}"
 read -p "Do you want to configure the BirdNET-Go container to use host networking? (y/N) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
