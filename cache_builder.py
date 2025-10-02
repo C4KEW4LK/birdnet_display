@@ -5,6 +5,8 @@ import requests
 from urllib.parse import urljoin, quote_plus
 from PIL import Image
 from bs4 import BeautifulSoup
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 # --- Constants and Configuration ---
 CACHE_DIRECTORY = "static/bird_images_cache"
@@ -13,9 +15,24 @@ IMAGES_PER_SPECIES = 3
 BIRDNET_API_BASE = "http://localhost:8080"
 MIN_IMAGE_WIDTH = 800
 MIN_IMAGE_HEIGHT = 600
+MAX_WORKERS = 10  # Number of parallel download threads
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
 }
+
+# Thread-safe print lock
+print_lock = threading.Lock()
+
+# Session will be created when needed
+_session = None
+
+def get_session():
+    """Get or create a requests session for connection pooling."""
+    global _session
+    if _session is None:
+        _session = requests.Session()
+        _session.headers.update(HEADERS)
+    return _session
 
 # Color codes for terminal output
 YELLOW = '\033[1;33m'
@@ -52,7 +69,7 @@ def check_location_settings():
     """Check if location is set in BirdNET-Go settings."""
     settings_url = f"{BIRDNET_API_BASE}/api/v2/settings"
     try:
-        response = requests.get(settings_url, timeout=10)
+        response = get_session().get(settings_url, timeout=10)
         response.raise_for_status()
         settings = response.json()
 
@@ -81,7 +98,7 @@ def fetch_species_from_api():
     api_url = f"{BIRDNET_API_BASE}/api/v2/range/species/list"
     try:
         print(f"[INFO] Fetching species list from {api_url}")
-        response = requests.get(api_url, timeout=10)
+        response = get_session().get(api_url, timeout=10)
         response.raise_for_status()
         data = response.json()
         species_list = []
@@ -193,7 +210,7 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images):
     base_url = "https://commons.wikimedia.org"
     search_url = f"{base_url}/w/index.php?search={quote_plus(search_query)}&title=Special:MediaSearch&go=Go&type=image"
     try:
-        response = requests.get(search_url, headers={'User-Agent': HEADERS['User-Agent']})
+        response = get_session().get(search_url)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
         result_elements = soup.select('a.sdms-image-result')
@@ -204,7 +221,7 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images):
             if not file_page_url or not img_tag or not img_tag.get('data-src'): continue
 
             try:
-                page_response = requests.get(file_page_url, headers={'User-Agent': HEADERS['User-Agent']}, timeout=10)
+                page_response = get_session().get(file_page_url, timeout=10)
                 page_soup = BeautifulSoup(page_response.text, 'html.parser')
 
                 # Get attribution
@@ -247,41 +264,73 @@ def scrape_wikimedia_for_image_data(common_name, scientific_name, num_images):
 
 def download_image_and_attribution(image_info, folder_path, file_name_base):
     """Downloads an image and saves its attribution, skipping if files already exist."""
-    if not os.path.exists(folder_path): os.makedirs(folder_path)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path, exist_ok=True)
     file_ext = os.path.splitext(image_info['url'].split('(')[0])[-1] or ".jpg"
     image_file_path = os.path.join(folder_path, f"{file_name_base}{file_ext}")
     attr_file_path = os.path.join(folder_path, f"{file_name_base}.txt")
     if os.path.exists(image_file_path) and os.path.exists(attr_file_path): return
     try:
-        image_response = requests.get(image_info['url'], timeout=15, headers={'User-Agent': HEADERS['User-Agent']})
+        image_response = get_session().get(image_info['url'], timeout=15)
         image_response.raise_for_status()
         with open(image_file_path, 'wb') as f: f.write(image_response.content)
         with open(attr_file_path, 'w', encoding='utf-8') as f: f.write(image_info['attribution'])
-        print(f"Successfully cached {os.path.basename(image_file_path)}")
+        with print_lock:
+            print(f"Successfully cached {os.path.basename(image_file_path)}")
     except (requests.exceptions.RequestException, IOError) as e:
-        print(f"Failed to download/save for {file_name_base}. Error: {e}")
+        with print_lock:
+            print(f"Failed to download/save for {file_name_base}. Error: {e}")
 
 # --- Main Cache Building Process ---
+def process_species(species_info):
+    """Process a single species - fetch and download images."""
+    common_name, scientific_name = species_info
+    species_folder_name = "".join(c for c in common_name if c.isalnum() or c in ' _').rstrip().replace(' ', '_')
+    species_folder_path = os.path.join(CACHE_DIRECTORY, species_folder_name)
+
+    # Check if already cached
+    if os.path.isdir(species_folder_path):
+        images_found = len([f for f in os.listdir(species_folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
+        if images_found >= IMAGES_PER_SPECIES:
+            with print_lock:
+                print(f"✓ Cache for '{common_name}' is already complete ({images_found} images). Skipping.")
+            return common_name, True
+
+    # Fetch and download images
+    image_infos = scrape_wikimedia_for_image_data(common_name, scientific_name, IMAGES_PER_SPECIES)
+    if not image_infos:
+        with print_lock:
+            print(f"✗ No images found for '{common_name}'")
+        return common_name, False
+
+    for i, info in enumerate(image_infos):
+        download_image_and_attribution(info, species_folder_path, f"{species_folder_name}_{i+1}")
+
+    return common_name, True
+
 def ensure_cache_is_built():
-    """Checks for and builds the offline image cache, skipping already completed species."""
+    """Checks for and builds the offline image cache with parallel processing."""
     print("--- Checking local image cache... ---")
     bird_species_to_cache = load_species_from_file(SPECIES_FILE)
     if not bird_species_to_cache:
         print(f"WARNING: '{SPECIES_FILE}' not found or empty. Cannot build cache.")
         return
 
-    for common_name, scientific_name in bird_species_to_cache:
-        species_folder_name = "".join(c for c in common_name if c.isalnum() or c in ' _').rstrip().replace(' ', '_')
-        species_folder_path = os.path.join(CACHE_DIRECTORY, species_folder_name)
-        if os.path.isdir(species_folder_path):
-            images_found = len([f for f in os.listdir(species_folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))])
-            if images_found >= IMAGES_PER_SPECIES:
-                print(f"Cache for '{common_name}' is already complete ({images_found} images). Skipping.")
-                continue
-        image_infos = scrape_wikimedia_for_image_data(common_name, scientific_name, IMAGES_PER_SPECIES)
-        if not image_infos: continue
-        for i, info in enumerate(image_infos):
-            download_image_and_attribution(info, species_folder_path, f"{species_folder_name}_{i+1}")
+    total_species = len(bird_species_to_cache)
+    print(f"Processing {total_species} species with {MAX_WORKERS} parallel workers...")
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Submit all tasks
+        future_to_species = {executor.submit(process_species, species): species for species in bird_species_to_cache}
+
+        # Process completed tasks
+        for future in as_completed(future_to_species):
+            species_name, success = future.result()
+            completed += 1
+            with print_lock:
+                print(f"[{completed}/{total_species}] Completed: {species_name}")
+
     print("--- Image cache check complete. ---")
 
 def resize_cached_images():
