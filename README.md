@@ -1,6 +1,6 @@
 # BirdNET Display
 
-A Python-based web application designed to run on a Raspberry Pi alongside [BirdNET-Pi](https://github.com/mcguirepr89/BirdNET-Pi). It displays the latest bird detections on a screen attached to the Pi, using BirdNET data and local image caches. It is designed around the standard 800x480px screens.
+A Python-based web application designed to run on a Raspberry Pi alongside [BirdNET-Go](https://github.com/tphakala/birdnet-go). It displays the latest bird detections on a screen attached to the Pi, using BirdNET data and local image caches. It is designed around the standard 800x480px screens.
 
 ## Completed System
 
@@ -19,7 +19,7 @@ Here are some shots of the completed system in its 3d printed enclosure.
 
 **Online Mode:**
 
-The online version shows the most recently detected unique birds, each with their confidence value as reported by [BirdNET-Pi](https://github.com/mcguirepr89/BirdNET-Pi).
+The online version shows the most recently detected unique birds, each with their confidence value as reported by [BirdNET-Go](https://github.com/tphakala/birdnet-go).
 
 ![Main Interface (Online)](images/main_interface_online.png)
 
@@ -43,7 +43,7 @@ The settings modal allows you to control the display and system.
 
 ## Features
 - Designed for Raspberry Pi with a connected display.
-- Integrates with [BirdNET-Pi](https://github.com/mcguirepr89/BirdNET-Pi) to show the latest bird detections.
+- Integrates with [BirdNET-Go](https://github.com/tphakala/birdnet-go) to show the latest bird detections.
 - Displays the IP address (including a QR code) of the Raspberry Pi on the webpage.
 - Caches images for all birds in the species list so the app can work completely offline and still display birds.
 - Simple and responsive web interface.
@@ -53,7 +53,7 @@ The settings modal allows you to control the display and system.
 
 ## Prerequisites
 
-This project requires a locally installed and running instance of [birdnet-go](https://github.com/tphakala/birdnet-go). You can install it by running the following commands:
+This project requires a locally installed and running instance of [BirdNET-Go](https://github.com/tphakala/birdnet-go). You can install it by running the following commands:
 
 ```bash
 curl -fsSL https://github.com/tphakala/birdnet-go/raw/main/install.sh -o install.sh
@@ -157,7 +157,7 @@ python cache_builder.py
 
 The main application settings are at the top of `birdnet_display.py`:
 
--   `BASE_URL`: The URL of your [BirdNET-Pi](https://github.com/mcguirepr89/BirdNET-Pi) instance.
+-   `BASE_URL`: The URL of your [BirdNET-Go](https://github.com/tphakala/birdnet-go) instance.
 -   `SERVER_PORT`: The port for the display web server.
 
 ### Access Point (AP) Setup
