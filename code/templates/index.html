@@ -109,80 +109,80 @@
 
     <div class="main-layout">
         <div class="left-column">
-            {% if birds and birds[0] %}
+            {{if and .birds (ge (len .birds) 1)}}
             <div id="card-0" class="detection-card main-card">
-                <div id="card-bg-0" class="card-background" style="background-image: url('{{ birds[0].image_url }}');"></div>
-                <img id="img-0" class="bird-image" src="{{ birds[0].image_url }}" alt="Image of bird">
+                <div id="card-bg-0" class="card-background" style="background-image: url('{{(index .birds 0).ImageURL}}');"></div>
+                <img id="img-0" class="bird-image" src="{{(index .birds 0).ImageURL}}" alt="Image of bird">
                 <div class="card-content-overlay">
-                    <div><h1 id="name-0">{{ birds[0].name }}</h1></div>
+                    <div><h1 id="name-0">{{(index .birds 0).Name}}</h1></div>
                     <div class="card-footer">
                         <div class="footer-text">
-                            <p id="time-0" class="time-display">{{ birds[0].time_display }}</p>
+                            <p id="time-0" class="time-display">{{(index .birds 0).TimeDisplay}}</p>
                             <p id="copyright-0" class="copyright-display"></p>
                         </div>
                         <div class="footer-right">
-                            <div id="confidence-container-0" class="confidence-circle-container" data-confidence="{{ birds[0].confidence_value }}"></div>
+                            <div id="confidence-container-0" class="confidence-circle-container" data-confidence="{{(index .birds 0).ConfidenceValue}}"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
+            {{end}}
         </div>
         <div class="right-column">
-            {% if birds and birds[1] %}
+            {{if and .birds (ge (len .birds) 2)}}
             <div id="card-1" class="detection-card side-card">
-                <div id="card-bg-1" class="card-background" style="background-image: url('{{ birds[1].image_url }}');"></div>
-                <img id="img-1" class="bird-image" src="{{ birds[1].image_url }}" alt="Image of bird">
+                <div id="card-bg-1" class="card-background" style="background-image: url('{{(index .birds 1).ImageURL}}');"></div>
+                <img id="img-1" class="bird-image" src="{{(index .birds 1).ImageURL}}" alt="Image of bird">
                 <div class="card-content-overlay">
-                    <div><h2 id="name-1">{{ birds[1].name }}</h2></div>
+                    <div><h2 id="name-1">{{(index .birds 1).Name}}</h2></div>
                     <div class="card-footer">
                         <div class="footer-text">
-                            <p id="time-1" class="time-display">{{ birds[1].time_display }}</p>
+                            <p id="time-1" class="time-display">{{(index .birds 1).TimeDisplay}}</p>
                             <p id="copyright-1" class="copyright-display"></p>
                         </div>
                         <div class="footer-right">
-                            <div id="confidence-container-1" class="confidence-circle-container" data-confidence="{{ birds[1].confidence_value }}"></div>
+                            <div id="confidence-container-1" class="confidence-circle-container" data-confidence="{{(index .birds 1).ConfidenceValue}}"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
-            {% if birds and birds[2] %}
+            {{end}}
+            {{if and .birds (ge (len .birds) 3)}}
             <div id="card-2" class="detection-card side-card">
-                <div id="card-bg-2" class="card-background" style="background-image: url('{{ birds[2].image_url }}');"></div>
-                <img id="img-2" class="bird-image" src="{{ birds[2].image_url }}" alt="Image of bird">
+                <div id="card-bg-2" class="card-background" style="background-image: url('{{(index .birds 2).ImageURL}}');"></div>
+                <img id="img-2" class="bird-image" src="{{(index .birds 2).ImageURL}}" alt="Image of bird">
                 <div class="card-content-overlay">
-                    <div><h2 id="name-2">{{ birds[2].name }}</h2></div>
+                    <div><h2 id="name-2">{{(index .birds 2).Name}}</h2></div>
                     <div class="card-footer">
                         <div class="footer-text">
-                            <p id="time-2" class="time-display">{{ birds[2].time_display }}</p>
+                            <p id="time-2" class="time-display">{{(index .birds 2).TimeDisplay}}</p>
                             <p id="copyright-2" class="copyright-display"></p>
                         </div>
                         <div class="footer-right">
-                            <div id="confidence-container-2" class="confidence-circle-container" data-confidence="{{ birds[2].confidence_value }}"></div>
+                            <div id="confidence-container-2" class="confidence-circle-container" data-confidence="{{(index .birds 2).ConfidenceValue}}"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
-            {% if birds and birds[3] %}
+            {{end}}
+            {{if and .birds (ge (len .birds) 4)}}
             <div id="card-3" class="detection-card side-card">
-                 <div id="card-bg-3" class="card-background" style="background-image: url('{{ birds[3].image_url }}');"></div>
-                <img id="img-3" class="bird-image" src="{{ birds[3].image_url }}" alt="Image of bird">
+                 <div id="card-bg-3" class="card-background" style="background-image: url('{{(index .birds 3).ImageURL}}');"></div>
+                <img id="img-3" class="bird-image" src="{{(index .birds 3).ImageURL}}" alt="Image of bird">
                 <div class="card-content-overlay">
-                    <div><h2 id="name-3">{{ birds[3].name }}</h2></div>
+                    <div><h2 id="name-3">{{(index .birds 3).Name}}</h2></div>
                     <div class="card-footer">
                         <div class="footer-text">
-                            <p id="time-3" class="time-display">{{ birds[3].time_display }}</p>
+                            <p id="time-3" class="time-display">{{(index .birds 3).TimeDisplay}}</p>
                             <p id="copyright-3" class="copyright-display"></p>
                         </div>
                         <div class="footer-right">
-                            <div id="confidence-container-3" class="confidence-circle-container" data-confidence="{{ birds[3].confidence_value }}"></div>
+                            <div id="confidence-container-3" class="confidence-circle-container" data-confidence="{{(index .birds 3).ConfidenceValue}}"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            {% endif %}
+            {{end}}
         </div>
     </div>
 
@@ -268,7 +268,7 @@
             const qrUrlText = document.getElementById('qrUrlText');
             let timeoutId;
             qrImage.src = '/qr_code.png';
-            qrUrlText.textContent = {{ server_url | tojson }};
+            qrUrlText.textContent = "{{.server_url}}";
 
             function hideQrModal() { qrModal.style.display = 'none'; if (timeoutId) { clearTimeout(timeoutId); } }
             function showQrModal() { qrModal.style.display = 'flex'; timeoutId = setTimeout(hideQrModal, 30000); }
@@ -399,7 +399,7 @@
             });
 
             // --- DYNAMIC DATA REFRESH LOGIC ---
-            const refreshIntervalMs = {{ refresh_interval * 1000 }};
+            const refreshIntervalMs = {{.refresh_interval}} * 1000;
 
             function updateConfidenceCircle(index, confidence) {
                 const container = document.getElementById(`confidence-container-${index}`);
@@ -499,23 +499,23 @@
             }
 
             // Initial setup for circles and copyright that were rendered by the server
-            {% for i in range(4) %}
-                {% if birds and birds[i] %}
-                    {% if birds[i].get('is_offline') %}
-                        document.getElementById('confidence-container-{{ i }}').style.display = 'none';
-                    {% else %}
-                        updateConfidenceCircle({{ i }}, {{ birds[i].confidence_value }});
-                    {% endif %}
-                    const copyrightElem{{ i }} = document.getElementById('copyright-{{ i }}');
-                    const copyrightText{{ i }} = "{{ birds[i].copyright }}";
-                    if (copyrightText{{ i }} && copyrightText{{ i }}.trim() !== "") {
-                        copyrightElem{{ i }}.textContent = copyrightText{{ i }};
-                        copyrightElem{{ i }}.style.display = "block";
+            {{range $i := range 4}}
+                {{if and $.birds (ge (len $.birds) (add $i 1))}}
+                    {{if (index $.birds $i).IsOffline}}
+                        document.getElementById('confidence-container-{{$i}}').style.display = 'none';
+                    {{else}}
+                        updateConfidenceCircle({{$i}}, {{(index $.birds $i).ConfidenceValue}});
+                    {{end}}
+                    const copyrightElem{{$i}} = document.getElementById('copyright-{{$i}}');
+                    const copyrightText{{$i}} = "{{(index $.birds $i).Copyright}}";
+                    if (copyrightText{{$i}} && copyrightText{{$i}}.trim() !== "") {
+                        copyrightElem{{$i}}.textContent = copyrightText{{$i}};
+                        copyrightElem{{$i}}.style.display = "block";
                     } else {
-                        copyrightElem{{ i }}.style.display = "none";
+                        copyrightElem{{$i}}.style.display = "none";
                     }
-                {% endif %}
-            {% endfor %}
+                {{end}}
+            {{end}}
             
             checkAudioStatus();
             setInterval(checkAudioStatus, 5000);

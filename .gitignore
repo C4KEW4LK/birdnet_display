@@ -1,12 +1,33 @@
-# Byte-compiled / optimized / DLL files
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# Application specific
+birdnet_display
+cache_builder
+pinned_species.json
+static/bird_images_cache/
+
+# Python (old files - keep for reference)
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
+venv/
 .Python
 build/
 develop-eggs/
@@ -29,6 +50,3 @@ MANIFEST
 
 # Claude Code
 .claude/
-
-# Ignore static bird images cache
-static/bird_images_cache/

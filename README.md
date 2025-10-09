@@ -1,260 +1,308 @@
 # BirdNET Display
 
-A Python-based web application designed to run on a Raspberry Pi alongside [BirdNET-Go](https://github.com/tphakala/birdnet-go). It displays the latest bird detections on a screen attached to the Pi, using BirdNET data and local image caches. It is designed around the standard 800x480px screens.
+A high-performance display interface for [BirdNET-Go](https://github.com/tphakala/birdnet-go) written in Go. Designed to run on a Raspberry Pi with an attached 800x480px touchscreen, showing the latest bird detections with images, confidence scores, and offline caching capabilities.
 
-## Completed System
+![Main Interface](images/main_interface_online.png)
 
-Here are some shots of the completed system in its 3d printed enclosure.
+## Features
 
-**Front:**
-![System Front](images/system%20front.png)
-
-**Side:**
-![System Side](images/system%20side.png)
-
-**Internals:**
-![System Internals](images/system%20internals.png)
+- 🐦 **Live Bird Detections** - Real-time display of detected birds from BirdNET-Go
+- 🖼️ **Image Caching** - Offline mode with locally cached bird images from Wikimedia
+- 📌 **New Species Badges** - Automatically pins newly detected species for 24 hours
+- 🎨 **Multiple Layouts** - 1, 3, or 4 bird display configurations
+- 📱 **QR Code** - Quick access to BirdNET-Go interface
+- ⚙️ **System Controls** - Brightness adjustment, reboot, and power off
+- 🔌 **Offline Support** - Works without internet using cached images (once setup)
 
 ## Screenshots
 
-**Online Mode:**
+### Online Mode
+![Online Mode](images/main_interface_online.png)
 
-The online version shows the most recently detected unique birds, each with their confidence value as reported by [BirdNET-Go](https://github.com/tphakala/birdnet-go).
+### Offline Mode
+![Offline Mode](images/main_interface_offline.png)
 
-![Main Interface (Online)](images/main_interface_online.png)
-
-**Offline Mode:**
-
-The offline version displays a random assortment of birds native to the area, using cached images and information.
-
-![Main Interface (Offline)](images/main_interface_offline.png)
-
-**QR Code Overlay:**
-
-The interface also displays the IP address of the Pi as a QR code for easy access from other devices.
-
-![QR Code Overlay](images/qr%20code%20overlay.png)
-
-**Settings Modal:**
-
-The settings modal allows you to control the display and system.
-
+### Settings
 ![Settings Modal](images/settings%20modal.png)
 
-## Features
-- Designed for Raspberry Pi with a connected display.
-- Integrates with [BirdNET-Go](https://github.com/tphakala/birdnet-go) to show the latest bird detections.
-- Displays the IP address (including a QR code) of the Raspberry Pi on the webpage.
-- Caches images for all birds in the species list so the app can work completely offline and still display birds.
-- Simple and responsive web interface.
-- Kiosk mode for dedicated display on a Raspberry Pi.
-- System controls from the web interface (brightness, reboot, power off).
-- Microphone status indicator that pings an ESP32 RTSP stream to verify the audio connection.
+## Hardware
 
-## Prerequisites
+### Confirmed Working Setup
+- Raspberry Pi 4B (other Pi models may work)
+- 5" DSI touchscreen (800x480px) - [Example](https://www.aliexpress.com/item/1005007091586628.html)
+- GeeekPi Armor lite heatsink ([Link](https://52pi.com/products/52pi-cnc-extreme-heatsink-with-pwm-fan-for-raspberry-pi-4))
 
-This project requires a locally installed and running instance of [BirdNET-Go](https://github.com/tphakala/birdnet-go). You can install it by running the following commands:
+### Optional
+- USB WiFi adapter for access point mode
+- 3D printed enclosure (files included in `3d print files/`)
 
-```bash
-curl -fsSL https://github.com/tphakala/birdnet-go/raw/main/install.sh -o install.sh
-bash ./install.sh
-```
+## Quick Start
 
-## Setup and Installation
+### Prerequisites
 
-There are two ways to install the application:
+- Raspberry Pi running Raspberry Pi OS 64-bit
+- [BirdNET-Go](https://github.com/tphakala/birdnet-go) installed and running
 
-### Automatic Installation (Recommended for Raspberry Pi)
+### Installation
 
-The `install.sh` script automates the entire setup process on a Raspberry Pi.
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/C4KEW4LK/birdnet_display.git
+   cd birdnet_display/code
+   ```
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/C4KEW4LK/birdnet-display.git
-    cd birdnet-display
-    ```
+2. **Make binaries executable:**
+   ```bash
+   chmod +x bin/birdnet_display bin/cache_builder scripts/*.sh
+   ```
 
-2.  **Run the installer:**
-    ```bash
-    chmod +x install.sh
-    ./install.sh
-    ```
+3. **Run automatic installation (recommended):**
+   ```bash
+   ./scripts/install.sh
+   ```
 
-    The script will:
-    - Create an installation directory (`~/birdnet_display`).
-    - Set up a Python virtual environment.
-    - Install all required dependencies.
-    - Build the initial image cache from your `species_list.csv`.
-    - Optionally, configure the system to run in kiosk mode and set up the [BirdNET-Go](https://github.com/tphakala/birdnet-go) networking.
+   This will:
+   - Set up the application directory
+   - Build the image cache
+   - Optionally configure systemd service (auto-start on boot)
+   - Optionally set up kiosk mode
 
-### Manual Installation
+4. **Or run manually:**
+   ```bash
+   # Build image cache (optional)
+   ./bin/cache_builder
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/C4KEW4LK/birdnet-display.git
-    cd birdnet-display
-    ```
+   # Start the server
+   ./bin/birdnet_display
+   ```
 
-2.  **Create a Python virtual environment:**
-
-    *Note: On some systems like Raspbian, you may need to install the `venv` module first:*
-    ```bash
-    sudo apt-get install python3-venv
-    ```
-
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-
-3.  **Install the required Python packages:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Build the image cache:**
-    ```bash
-    python cache_builder.py
-    ```
-
-5.  **Run the application:**
-    ```bash
-    python birdnet_display.py
-    ```
+5. **Access the display:**
+   ```
+   http://raspberrypi.local:5000
+   ```
+   Or from any device on the network using the Pi's IP address.
 
 ## Usage
 
--   **To run the application manually:**
-    ```bash
-    cd ~/birdnet_display
-    ./run.sh
-    ```
--   If you enabled the kiosk mode during installation, the application will start automatically on boot.
--   The Flask app serves the web interface on port 5000, which you can open in a web browser by navigating to `http://<your-pi-ip>:5000` to view the display.
+### Command-Line Options
 
-## Configuration
+**Main Server:**
+```bash
+./bin/birdnet_display -h
 
-### Species List
+# Start with defaults (localhost:8080 BirdNET-Go API, port 5000)
+./bin/birdnet_display
 
-To customize the birds displayed in offline mode, edit the `species_list.csv` file. Add the common and scientific names of the birds you want to see.
+# Custom BirdNET-Go URL
+./bin/birdnet_display -apiURL http://192.168.1.100:8080
+
+# Custom port
+./bin/birdnet_display -port 8000
+```
+
+**Cache Builder:**
+```bash
+./bin/cache_builder -h
+
+# Build cache from species_list.csv
+./bin/cache_builder
+
+# Update species list from BirdNET-Go API
+./bin/cache_builder -update-species
+
+# Use custom BirdNET-Go URL
+./bin/cache_builder -apiURL http://192.168.1.100:8080 -update-species
+```
+
+### Configuration
+
+#### Species List
+
+Edit `code/species_list.csv` to customize which birds appear in offline mode:
 
 ```csv
 Common Name,Scientific Name
 Australian Magpie,Gymnorhina tibicen
 Torresian Crow,Corvus orru
-...
 ```
 
-After modifying the list, rebuild the cache:
-
+Then rebuild the cache:
 ```bash
-cd ~/birdnet_display
-source venv/bin/activate
-python cache_builder.py
+./bin/cache_builder
 ```
 
-### Application Settings
-
-The main application settings are at the top of `birdnet_display.py`:
-
--   `BASE_URL`: The URL of your [BirdNET-Go](https://github.com/tphakala/birdnet-go) instance.
--   `SERVER_PORT`: The port for the display web server.
-
-### Access Point (AP) Setup
-
-For field deployments where you may not have access to a local Wi-Fi network, the `ap_setup.sh` script can configure your Raspberry Pi to act as a Wi-Fi Access Point. This allows you to connect directly to the Pi from your phone or laptop.
-
-**Features:**
-
-- Creates a secure Wi-Fi hotspot with a custom name (SSID) and password.
-- Assigns a fixed IP address to a specified device, ensuring a consistent address for your microphone or other peripherals.
-
-**Configuration:**
-
-1.  Open the `ap_setup.sh` script in a text editor.
-2.  Edit the following variables at the top of the file:
-    -   `WIFI_INTERFACE`: The name of your USB Wi-Fi interface (e.g., `wlan1`).
-    -   `HOTSPOT_SSID`: The desired name for your Wi-Fi network.
-    -   `HOTSPOT_PASSWORD`: The password for your Wi-Fi network.
-    -   `DEVICE_MAC`: The MAC address of the device to receive a fixed IP.
-    -   `DEVICE_FIXED_IP`: The fixed IP address to assign.
-
-**Usage:**
-
-Run the script with `sudo`:
-
+Or fetch species from BirdNET-Go API based on your location:
 ```bash
-sudo ./ap_setup.sh
+./bin/cache_builder -update-species
 ```
 
-The script will configure and activate the hotspot. The settings are persistent and will be restored on boot.
+#### Display Settings
 
-### Web Interface Controls
-
-The web interface provides several interactive controls accessible by clicking on the main display area to reveal a QR code and settings icon:
-
--   **Display Layout:** Change how bird detections are arranged on the screen (e.g., 1 bird, 3 birds, 4 tall, 4 grid).
--   **Screen Brightness:** Adjust the display brightness using a slider.
--   **System Controls:** Buttons for restarting or powering off the Raspberry Pi.
+All settings are accessible through the web interface:
+- Display layout (1, 3, or 4 birds)
+- Screen brightness
+- System controls (reboot/power off)
+- Pinned species management
 
 ## Project Structure
+
 ```
 .
-├── 3d print files          # 3D printable enclosure files
-├── birdnet_display.py      # Main Flask application
-├── ap_setup.sh             # Script to configure a Wi-Fi hotspot
-├── cache_builder.py        # Script to build the image cache
-├── install.sh              # Installation script for Raspberry Pi
-├── kiosk_launcher.sh       # Script to launch Chromium in kiosk mode
-├── README.md               # This file
-├── requirements.txt        # Python dependencies
-├── run.sh                  # Script to run the application
-├── species_list.csv        # List of bird species for the cache
-└── static/
-    ├── index.html          # Web interface
-    └── bird_images_cache/  # Cached bird images
+├── code/                      # Application code
+│   ├── bin/                   # Pre-compiled binaries (ARM64)
+│   │   ├── birdnet_display   # Main server
+│   │   └── cache_builder     # Cache builder
+│   ├── cmd/                   # Additional commands
+│   ├── scripts/               # Installation & setup scripts
+│   ├── templates/             # HTML templates
+│   ├── static/                # Static files & image cache
+│   ├── docs/                  # Documentation
+│   ├── main.go               # Server source code
+│   ├── go.mod                # Go dependencies
+│   └── species_list.csv      # Bird species list
+├── 3d print files/           # Enclosure STL/3MF files
+├── images/                   # Screenshots & documentation images
+└── README.md                 # This file
 ```
 
-## 3D Printed Files
+## Advanced Setup
 
-This project includes 3D printable enclosure files (typically in .3mf format) for housing the Raspberry Pi and display. These files are designed with the following considerations:
+### Systemd Service (Auto-start on boot)
 
--   **No Supports Needed:** The models are oriented in the .3mf files to be printed without the need for support material.
--   **Mounting Options:** Designs include options for either directly threading machine screws into the plastic or using heat-set threaded inserts for a more robust assembly.
+The install script can do this automatically, or manually:
 
-### Required Hardware
+```bash
+sudo nano /etc/systemd/system/birdnet-display.service
+```
 
-For the main housing, you will need:
+```ini
+[Unit]
+Description=BirdNET Display Service
+After=network.target
 
-- RPI 4B is confirmed other Pis might not fit (mainly thinking about the usb wifi adaptor)
-- 5" DSI touch screen (eg. https://www.aliexpress.com/item/1005007091586628.html)
-- USB-C connector holes perpendicular to connector (eg. D-type of https://www.aliexpress.com/item/1005005010606562.html)
-- Heatsink I used:
-	- GeeekPi Armor lite heatsink for Raspberry Pi 4 (https://52pi.com/products/52pi-cnc-extreme-heatsink-with-pwm-fan-for-raspberry-pi-4) though I had to drill out the threaded holes to allow mount the RPi to the screen
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/birdnet_display/code
+ExecStart=/home/pi/birdnet_display/code/bin/birdnet_display -apiURL http://YOUR_BIRDNET_IP:8080
+Restart=on-failure
+RestartSec=5
 
-- 4x Threaded inserts M2.5xD3.5xL3
-- 4x M2.5x8mm button head screws
-- 4x M2.5x4mm button head screws
-- 2x M2.5x4mm countersunk head screws
-- 2x M2.5x8mm countersunk head screws
-- 2x M2x6mm Button head screws
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable birdnet-display.service
+sudo systemctl start birdnet-display.service
+```
+
+### Kiosk Mode
+
+For a dedicated display that auto-starts in fullscreen:
+
+The install script can configure this, or use the provided `scripts/kiosk_launcher.sh`.
+
+### Access Point Mode
+
+To create a WiFi hotspot (useful for field deployments):
+
+```bash
+./scripts/ap_setup.sh
+```
+
+Edit the script to configure SSID, password, and fixed IP assignments.
+
+## Building from Source
+
+The repository includes pre-compiled ARM64 binaries. To rebuild:
+
+### On Raspberry Pi
+```bash
+cd code
+./build.sh
+```
+
+### Cross-compile from another machine
+```bash
+cd code
+GOOS=linux GOARCH=arm64 go build -o bin/birdnet_display main.go
+GOOS=linux GOARCH=arm64 go build -o bin/cache_builder ./cmd/cache_builder/main.go
+```
+
+## 3D Printed Enclosure
+
+The `3d print files/` directory contains STL and 3MF files for:
+- Main housing for Raspberry Pi and screen
+- ESP32 microphone housing (optional)
+
+Files are oriented for printing without supports. Choose between:
+- Threaded inserts (recommended)
+- Direct machine screws
+
+See hardware list in each subdirectory.
 
 ## Troubleshooting
 
--   **"Template file not found" error**: Make sure the `static` directory and `index.html` are in the same directory as `birdnet_display.py`.
--   **Images not appearing**:
-    -   Ensure the `bird_images_cache` directory exists and has images.
-    -   Run `python cache_builder.py` to build the cache.
--   **Application not starting on boot**:
-    -   Check the systemd service status: `sudo systemctl status bird-display.service`
-    -   Check the logs for errors: `journalctl -u bird-display.service`
+### Cannot connect to BirdNET-Go
+```bash
+# Use -apiURL flag with correct IP
+./bin/birdnet_display -apiURL http://192.168.1.100:8080
 
-## GitHub Repository
-[https://github.com/C4KEW4LK/birdnet_display](https://github.com/C4KEW4LK/birdnet_display)
+# Test API connectivity
+curl http://192.168.1.100:8080/api/v2/detections/recent?limit=1
+```
 
-## Disclaimer
+### Images not loading
+```bash
+# Build the cache
+./bin/cache_builder
 
-This software is provided "as is" and is confirmed to work with my specific setup. However, it may not be compatible with other configurations. Your mileage may vary.
+# Update species list and build cache
+./bin/cache_builder -update-species
+```
+
+### Service won't start
+```bash
+# Check logs
+journalctl -u birdnet-display.service -f
+
+# Check status
+sudo systemctl status birdnet-display.service
+```
+
+### Binary architecture mismatch
+```bash
+# Check binary
+file bin/birdnet_display
+# Should show: ARM aarch64
+
+# Check system
+uname -m
+# Should show: aarch64
+```
+
+## Documentation
+
+- [Command-Line Usage](code/docs/USAGE.md) - Detailed CLI documentation
 
 ## License
+
 MIT License
+
+## Acknowledgments
+
+- [BirdNET-Go](https://github.com/tphakala/birdnet-go) - The backend bird detection system
+- [Wikimedia Commons](https://commons.wikimedia.org/) - Bird images
+- Original Python version contributors
+
+## Links
+
+- **GitHub Repository:** [https://github.com/C4KEW4LK/birdnet_display](https://github.com/C4KEW4LK/birdnet_display)
+- **BirdNET-Go:** [https://github.com/tphakala/birdnet-go](https://github.com/tphakala/birdnet-go)
+
+---
+
+**Note:** This is a Go rewrite of the original Python version. All features have been preserved with improved performance and easier deployment.
