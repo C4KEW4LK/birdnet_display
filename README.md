@@ -70,8 +70,8 @@ The `install.sh` script automates the entire setup process on a Raspberry Pi.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/C4KEW4LK/birdnet-display.git
-    cd birdnet-display
+    git clone https://github.com/C4KEW4LK/birdnet_display.git
+    cd birdnet_display
     ```
 
 2.  **Run the installer:**
@@ -91,8 +91,8 @@ The `install.sh` script automates the entire setup process on a Raspberry Pi.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/C4KEW4LK/birdnet-display.git
-    cd birdnet-display
+    git clone https://github.com/C4KEW4LK/birdnet_display.git
+    cd birdnet_display
     ```
 
 2.  **Create a Python virtual environment:**
