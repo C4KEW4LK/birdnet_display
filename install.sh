@@ -16,6 +16,17 @@ echo -e "${GREEN}--- Starting Bird Detection Display Standalone Setup ---${NC}"
 echo -e "${YELLOW}Installation Target: $INSTALL_DIR${NC}"
 echo -e "${YELLOW}Source Directory: $SOURCE_DIR${NC}"
 
+# --- Step 0: Ensure BirdNET-Go is Installed ---
+echo -e "
+${YELLOW}Step 0: Checking BirdNET-Go service status...${NC}"
+if sudo systemctl status birdnet-go >/dev/null 2>&1; then
+    echo -e "${GREEN}[OK] BirdNET-Go service detected.${NC}"
+else
+    echo -e "${YELLOW}BirdNET-Go not found. Installing...${NC}"
+    curl -fsSL https://github.com/tphakala/birdnet-go/raw/main/install.sh -o /tmp/birdnet-go-install.sh
+    bash /tmp/birdnet-go-install.sh
+fi
+
 # --- Create Install Directory ---
 echo -e "\n${YELLOW}Step 1: Creating installation directory...${NC}"
 mkdir -p "$INSTALL_DIR"
@@ -106,16 +117,23 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     fi
 fi
 
-# --- Step 8: Build and Resize Image Cache ---
-echo -e "\n${YELLOW}Step 8: Building and resizing the offline image cache...${NC}"
-echo -e "${YELLOW}This may take a few minutes depending on your internet connection and species list size.${NC}"
-"$INSTALL_DIR/venv/bin/python3" "$INSTALL_DIR/cache_builder.py"
-if [ $? -ne 0 ]; then
-    echo -e "${RED}ERROR: Failed to build and resize the image cache. Please check for errors above.${NC}"
-    exit 1
+# --- Step 8: Build and Resize Image Cache (Optional) ---
+echo -e "\n${YELLOW}Step 8: Build the offline image cache?${NC}"
+read -p "Do you want to build and resize the offline image cache now? (y/N) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}Building and resizing the offline image cache...${NC}"
+    echo -e "${YELLOW}This may take a few minutes depending on your internet connection and species list size.${NC}"
+    "$INSTALL_DIR/venv/bin/python3" "$INSTALL_DIR/cache_builder.py"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}ERROR: Failed to build and resize the image cache. Please check for errors above.${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}[OK] Offline image cache is ready.${NC}"
+else
+    echo -e "${YELLOW}Skipping cache build. You can run it later with:${NC}"
+    echo -e "  ${YELLOW}$INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/cache_builder.py${NC}"
 fi
-echo -e "${GREEN}✅ Offline image cache is ready.${NC}"
-
 # --- Step 9: Create Run Script ---
 echo -e "\n${YELLOW}Step 9: Creating run.sh script...${NC}"
 cat > "$INSTALL_DIR/run.sh" << EOF
