@@ -9,6 +9,8 @@ import qrcode
 import io
 import json
 import sys
+import subprocess
+import re
 
 # Import variables and functions from the new cache builder script
 from cache_builder import CACHE_DIRECTORY, SPECIES_FILE, load_species_from_file
@@ -383,6 +385,120 @@ def dismiss_all_pinned():
         save_pinned_species(pinned)
         return jsonify({'status': 'success', 'message': 'All pinned species dismissed'})
     except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/wifi/scan', methods=['GET'])
+def wifi_scan():
+    """Scan for available WiFi networks using nmcli on wlan0."""
+    try:
+        result = subprocess.run(
+            ['nmcli', '-t', '-f', 'SSID,SIGNAL,SECURITY', 'dev', 'wifi', 'list', 'ifname', 'wlan0'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            return jsonify({'status': 'error', 'message': 'Failed to scan WiFi networks'}), 500
+
+        networks = []
+        seen_ssids = set()
+
+        for line in result.stdout.strip().split('\n'):
+            if not line:
+                continue
+            parts = line.split(':')
+            if len(parts) >= 3:
+                ssid = parts[0].strip()
+                signal = parts[1].strip()
+                security = parts[2].strip()
+
+                # Skip empty SSIDs and duplicates
+                if ssid and ssid not in seen_ssids:
+                    networks.append({
+                        'ssid': ssid,
+                        'signal': signal,
+                        'security': security if security else 'Open'
+                    })
+                    seen_ssids.add(ssid)
+
+        # Sort by signal strength (descending)
+        networks.sort(key=lambda x: int(x['signal']) if x['signal'].isdigit() else 0, reverse=True)
+
+        return jsonify({'status': 'success', 'networks': networks})
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'WiFi scan timeout'}), 500
+    except Exception as e:
+        print(f"Error scanning WiFi: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/wifi/connect', methods=['POST'])
+def wifi_connect():
+    """Connect to a WiFi network using nmcli on wlan0."""
+    try:
+        data = request.json
+        ssid = data.get('ssid')
+        password = data.get('password', '')
+
+        if not ssid:
+            return jsonify({'status': 'error', 'message': 'SSID is required'}), 400
+
+        # Connect to network on wlan0 interface
+        if password:
+            # Create new connection with password
+            result = subprocess.run(
+                ['nmcli', 'dev', 'wifi', 'connect', ssid, 'password', password, 'ifname', 'wlan0'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+        else:
+            # Connect to open network
+            result = subprocess.run(
+                ['nmcli', 'dev', 'wifi', 'connect', ssid, 'ifname', 'wlan0'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+        if result.returncode == 0:
+            return jsonify({'status': 'success', 'message': f'Connected to {ssid}'})
+        else:
+            error_msg = result.stderr.strip() if result.stderr else 'Connection failed'
+            return jsonify({'status': 'error', 'message': error_msg}), 500
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Connection timeout'}), 500
+    except Exception as e:
+        print(f"Error connecting to WiFi: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/wifi/current', methods=['GET'])
+def wifi_current():
+    """Get currently connected WiFi network on wlan0."""
+    try:
+        # Get connection status for wlan0 device
+        result = subprocess.run(
+            ['nmcli', '-t', '-f', 'GENERAL.CONNECTION', 'dev', 'show', 'wlan0'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode != 0:
+            return jsonify({'status': 'error', 'message': 'Failed to get current network'}), 500
+
+        # Parse the connection name
+        for line in result.stdout.strip().split('\n'):
+            if line.startswith('GENERAL.CONNECTION:'):
+                connection = line.split(':', 1)[1].strip()
+                if connection and connection != '--':
+                    # Connection name is usually the SSID
+                    return jsonify({'status': 'success', 'ssid': connection})
+
+        return jsonify({'status': 'success', 'ssid': None})
+    except Exception as e:
+        print(f"Error getting current WiFi: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 

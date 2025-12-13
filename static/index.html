@@ -4,17 +4,20 @@
     <meta charset="UTF-8"><title>Live Bird Detections</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #eef1f5; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; box-sizing: border-box; }
+        body.shutdown-state, body.restart-state { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 20% 20%, #1e293b 0, #0f172a 35%, #0b1020 70%); color: #e2e8f0; }
+        body.shutdown-state h1, body.restart-state h1 { margin: 0; font-size: 2.2em; font-weight: 700; letter-spacing: 0.02em; text-shadow: none; }
+        body.shutdown-state .status-card, body.restart-state .status-card { padding: 32px 40px; border-radius: 16px; background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); box-shadow: 0 15px 45px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.08); backdrop-filter: blur(8px); text-align: center; }
         
         /* Base styles for components */
-        .main-layout { gap: 15px; padding: 15px; width: 100vw; height: 100vh; box-sizing: border-box; }
-        .left-column { display: flex; flex-direction: column; }
-        .right-column { display: flex; flex-direction: column; gap: 15px; }
-        .detection-card { border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; position: relative; color: white; transition: opacity 0.5s ease-in-out; }
+        .main-layout { gap: 15px; padding: 15px; width: 100vw; height: 100vh; box-sizing: border-box; display: flex; }
+        .left-column { display: flex; flex-direction: column; flex: 2; gap: 15px; }
+        .right-column { display: flex; flex-direction: column; gap: 15px; flex: 1; }
+        .detection-card { border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; position: relative; color: white; transition: opacity 0.5s ease-in-out; min-height: 40vh; }
         .card-background { position: absolute; top: -20px; left: -20px; width: calc(100% + 40px); height: calc(100% + 40px); background-size: cover; background-position: center; filter: blur(15px); z-index: 0; transition: background-image 0.5s ease-in-out; }
         .detection-card .bird-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; border-radius: 12px; transition: opacity 0.5s ease-in-out; }
         .card-content-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%); box-sizing: border-box; }
-        .main-card { flex-grow: 1; }
-        .side-card { flex: 1; }
+        .main-card { flex-grow: 1; min-height: 50vh; }
+        .side-card { flex: 1; min-height: 20vh; }
         h1 { font-size: 2.2em; }
         h2 { font-size: 1.2em; }
         h1, h2 { margin: 0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 6px rgba(0,0,0,0.7); }
@@ -73,13 +76,15 @@
         #settingsModal { z-index: 1100; }
         #settingsModal .modal-content { width: 400px; max-width: 90vw; color: #111; }
         #settingsModal h2 { margin-bottom: 25px; }
+        #wifiModal { z-index: 1300; }
+        #pinnedModal { z-index: 1350; }
         .settings-group { margin-bottom: 20px; text-align: left; }
         .settings-group label { display: block; margin-bottom: 8px; font-weight: 500; }
         .system-buttons { display: flex; justify-content: space-between; gap: 10px; margin-top: 25px; }
         .system-btn { flex: 1; padding: 12px; font-size: 1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; }
         .restart-btn { background-color: #f97316; color: white; }
         .power-btn { background-color: #dc2626; color: white; }
-        #confirmModal { z-index: 1200; }
+        #confirmModal { z-index: 1400; }
         #confirmModal .modal-content { width: 400px; padding: 25px; }
         #confirmMessage { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 1.2em; color: #333; font-weight: 500; margin: 10px 0 0 0; }
         #confirmButtons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
@@ -95,6 +100,33 @@
         .dismiss-btn { padding: 6px 12px; font-size: 0.9em; background-color: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; }
         .dismiss-btn:hover { background-color: #b91c1c; }
         #pinned-species-list:empty::before { content: 'No pinned species'; color: #94a3b8; font-style: italic; display: block; padding: 10px; }
+
+        /* WiFi Settings Styles */
+        .wifi-settings { margin-bottom: 20px; text-align: left; }
+        .wifi-current { padding: 10px; background-color: #f0f9ff; border-left: 3px solid #3b82f6; margin-bottom: 15px; border-radius: 6px; }
+        .wifi-current-label { font-size: 0.85em; color: #64748b; margin-bottom: 4px; }
+        .wifi-current-ssid { font-weight: 600; color: #1e293b; font-size: 1.1em; }
+        .wifi-controls { display: flex; gap: 10px; margin-bottom: 15px; }
+        .wifi-select { flex: 1; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1em; background-color: white; }
+        .wifi-btn { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: background-color 0.2s; }
+        .wifi-scan-btn { background-color: #3b82f6; color: white; }
+        .wifi-scan-btn:hover { background-color: #2563eb; }
+        .wifi-scan-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        .wifi-manual-btn { background-color: #f97316; color: white; }
+        .wifi-manual-btn:hover { background-color: #ea580c; }
+        .wifi-password-group { margin-bottom: 15px; }
+        .wifi-password-group input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1em; box-sizing: border-box; }
+        .wifi-connect-btn { width: 100%; padding: 12px; background-color: #22c55e; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1em; }
+        .wifi-connect-btn:hover { background-color: #16a34a; }
+        .wifi-connect-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        .wifi-status { padding: 10px; border-radius: 8px; margin-bottom: 15px; display: none; }
+        .wifi-status.success { background-color: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .wifi-status.error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .wifi-network-option { display: flex; justify-content: space-between; align-items: center; }
+        .wifi-signal { font-size: 0.85em; color: #64748b; margin-left: 8px; }
+        .wifi-security { font-size: 0.75em; color: #94a3b8; margin-left: 8px; }
+        #manual-ssid-input { display: none; margin-bottom: 15px; }
+        #manual-ssid-input input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1em; box-sizing: border-box; }
     </style>
 </head>
 <body class="">
@@ -102,6 +134,7 @@
     <div id="settings-overlay">
         <div id="settings-menu">
             <button id="mode-btn" class="settings-btn">Change Mode</button>
+            <button id="wifi-settings-btn" class="settings-btn">WiFi</button>
             <button id="shutdown-btn" class="settings-btn shutdown">Shutdown</button>
         </div>
         <div id="swipe-handle"></div>
@@ -217,13 +250,53 @@
                 <input type="range" id="brightness-slider" min="15" max="255" value="255">
             </div>
             <div class="settings-group">
+                <label>WiFi</label>
+                <button id="wifi-settings-btn-modal" class="settings-btn" style="width: 100%;">Open WiFi Settings</button>
+            </div>
+            <div class="settings-group">
                 <label>Pinned Species</label>
-                <div id="pinned-species-list" style="max-height: 200px; overflow-y: auto;"></div>
-                <button id="dismiss-all-btn" class="dismiss-btn" style="width: 100%; margin-top: 10px; display: none;">Dismiss All</button>
+                <button id="pinned-settings-btn-modal" class="settings-btn" style="width: 100%;">Manage Pinned Species</button>
             </div>
             <div class="system-buttons">
                 <button id="restart-btn" class="system-btn restart-btn">Restart</button>
                 <button id="power-btn" class="system-btn power-btn">Power Off</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pinnedModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Pinned Species</h2>
+            <div class="settings-group">
+                <div id="pinned-species-list" style="max-height: 300px; overflow-y: auto;"></div>
+                <button id="dismiss-all-btn" class="dismiss-btn" style="width: 100%; margin-top: 10px; display: none;">Dismiss All</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="wifiModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>WiFi Settings</h2>
+            <div class="settings-group wifi-settings">
+                <div id="wifi-current-network" class="wifi-current" style="display: none;">
+                    <div class="wifi-current-label">Connected to:</div>
+                    <div class="wifi-current-ssid" id="current-ssid-display"></div>
+                </div>
+                <div id="wifi-status" class="wifi-status"></div>
+                <div class="wifi-controls">
+                    <select id="wifi-network-select" class="wifi-select">
+                        <option value="">Select network...</option>
+                    </select>
+                    <button id="wifi-scan-btn" class="wifi-btn wifi-scan-btn">Scan</button>
+                    <button id="wifi-manual-btn" class="wifi-btn wifi-manual-btn">Manual</button>
+                </div>
+                <div id="manual-ssid-input">
+                    <input type="text" id="manual-ssid" placeholder="Enter SSID manually">
+                </div>
+                <div class="wifi-password-group">
+                    <input type="password" id="wifi-password" placeholder="Password (leave empty for open networks)">
+                </div>
+                <button id="wifi-connect-btn" class="wifi-connect-btn">Connect</button>
             </div>
         </div>
     </div>
@@ -262,27 +335,51 @@
             // --- MODALS AND SETTINGS ---
             const qrModal = document.getElementById('qrModal');
             const settingsModal = document.getElementById('settingsModal');
+            const pinnedModal = document.getElementById('pinnedModal');
+            const wifiModal = document.getElementById('wifiModal');
             const confirmModal = document.getElementById('confirmModal');
             let confirmAction = null;
             const qrImage = document.getElementById('qrImage');
             const qrUrlText = document.getElementById('qrUrlText');
             let timeoutId;
             qrImage.src = '/qr_code.png';
-            qrUrlText.textContent = {{ server_url | tojson }};
+            const serverUrl = {{ server_url | tojson | default('"http://localhost:5000"', true) }};
+            qrUrlText.textContent = serverUrl;
 
             function hideQrModal() { qrModal.style.display = 'none'; if (timeoutId) { clearTimeout(timeoutId); } }
             function showQrModal() { qrModal.style.display = 'flex'; timeoutId = setTimeout(hideQrModal, 30000); }
-            document.querySelector('.main-layout').addEventListener('click', showQrModal);
+            const mainLayoutEl = document.querySelector('.main-layout');
+            if (mainLayoutEl) {
+                mainLayoutEl.addEventListener('click', showQrModal);
+            }
             qrModal.addEventListener('click', e => { if (e.target === qrModal) hideQrModal(); });
 
             function hideSettingsModal() { settingsModal.style.display = 'none'; }
             async function showSettingsModal(e) {
                 e.stopPropagation(); // Prevent QR modal from opening
-                await loadPinnedSpecies();
                 settingsModal.style.display = 'flex';
             }
             document.getElementById('settings-icon-btn').addEventListener('click', showSettingsModal);
             settingsModal.addEventListener('click', e => { if (e.target === settingsModal) hideSettingsModal(); });
+            const wifiButtons = Array.from(document.querySelectorAll('#wifi-settings-btn, #wifi-settings-btn-modal'));
+            function hideWifiModal() { wifiModal.style.display = 'none'; }
+            async function showWifiModal(e) {
+                e.stopPropagation();
+                await loadCurrentNetwork();
+                wifiModal.style.display = 'flex';
+            }
+            wifiButtons.forEach(btn => btn.addEventListener('click', showWifiModal));
+            wifiModal.addEventListener('click', e => { if (e.target === wifiModal) hideWifiModal(); });
+
+            const pinnedButtons = Array.from(document.querySelectorAll('#pinned-settings-btn-modal'));
+            function hidePinnedModal() { pinnedModal.style.display = 'none'; }
+            async function showPinnedModal(e) {
+                e.stopPropagation();
+                await loadPinnedSpecies();
+                pinnedModal.style.display = 'flex';
+            }
+            pinnedButtons.forEach(btn => btn.addEventListener('click', showPinnedModal));
+            pinnedModal.addEventListener('click', e => { if (e.target === pinnedModal) hidePinnedModal(); });
 
             function showConfirmModal(message, action) {
                 document.getElementById('confirmMessage').textContent = message;
@@ -304,13 +401,15 @@
             document.getElementById('restart-btn').addEventListener('click', () => {
                 showConfirmModal('Are you sure you want to restart the system?', () => {
                     fetch('/reboot', { method: 'POST' });
-                    document.body.innerHTML = '<h1>System is restarting...</h1>';
+                    document.body.className = 'restart-state';
+                    document.body.innerHTML = '<div class="status-card"><h1>System is restarting...</h1></div>';
                 });
             });
             document.getElementById('power-btn').addEventListener('click', () => {
                 showConfirmModal('Are you sure you want to power off the system?', () => {
                     fetch('/poweroff', { method: 'POST' });
-                    document.body.innerHTML = '<h1>System is shutting down...</h1>';
+                    document.body.className = 'shutdown-state';
+                    document.body.innerHTML = '<div class="status-card"><h1>System is shutting down...</h1></div>';
                 });
             });
             
@@ -398,8 +497,152 @@
                 }
             });
 
+            // --- WIFI MANAGEMENT ---
+            const wifiSelect = document.getElementById('wifi-network-select');
+            const wifiScanBtn = document.getElementById('wifi-scan-btn');
+            const wifiManualBtn = document.getElementById('wifi-manual-btn');
+            const wifiConnectBtn = document.getElementById('wifi-connect-btn');
+            const wifiPassword = document.getElementById('wifi-password');
+            const wifiStatus = document.getElementById('wifi-status');
+            const manualSsidInput = document.getElementById('manual-ssid-input');
+            const manualSsid = document.getElementById('manual-ssid');
+            const currentSsidDisplay = document.getElementById('current-ssid-display');
+            const wifiCurrentNetwork = document.getElementById('wifi-current-network');
+
+            let isManualMode = false;
+            let availableNetworks = [];
+
+            function showWifiStatus(message, isError = false) {
+                wifiStatus.textContent = message;
+                wifiStatus.className = 'wifi-status ' + (isError ? 'error' : 'success');
+                wifiStatus.style.display = 'block';
+                setTimeout(() => {
+                    wifiStatus.style.display = 'none';
+                }, 5000);
+            }
+
+            async function loadCurrentNetwork() {
+                try {
+                    const response = await fetch('/api/wifi/current');
+                    const data = await response.json();
+                    if (data.status === 'success' && data.ssid) {
+                        currentSsidDisplay.textContent = data.ssid;
+                        wifiCurrentNetwork.style.display = 'block';
+                    } else {
+                        wifiCurrentNetwork.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error loading current network:', error);
+                }
+            }
+
+            async function scanWifiNetworks() {
+                wifiScanBtn.disabled = true;
+                wifiScanBtn.textContent = 'Scanning...';
+
+                try {
+                    const response = await fetch('/api/wifi/scan');
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        availableNetworks = data.networks;
+                        wifiSelect.innerHTML = '<option value="">Select network...</option>';
+
+                        data.networks.forEach(network => {
+                            const option = document.createElement('option');
+                            option.value = network.ssid;
+                            option.dataset.security = network.security;
+                            option.textContent = `${network.ssid} (${network.signal}%) ${network.security !== 'Open' ? '🔒' : ''}`;
+                            wifiSelect.appendChild(option);
+                        });
+
+                        showWifiStatus(`Found ${data.networks.length} networks`);
+                    } else {
+                        showWifiStatus(data.message || 'Scan failed', true);
+                    }
+                } catch (error) {
+                    console.error('Error scanning WiFi:', error);
+                    showWifiStatus('Error scanning networks', true);
+                } finally {
+                    wifiScanBtn.disabled = false;
+                    wifiScanBtn.textContent = 'Scan';
+                }
+            }
+
+            wifiScanBtn.addEventListener('click', scanWifiNetworks);
+
+            wifiManualBtn.addEventListener('click', () => {
+                isManualMode = !isManualMode;
+                if (isManualMode) {
+                    manualSsidInput.style.display = 'block';
+                    wifiSelect.style.display = 'none';
+                    wifiScanBtn.style.display = 'none';
+                    wifiManualBtn.textContent = 'Select';
+                    manualSsid.focus();
+                } else {
+                    manualSsidInput.style.display = 'none';
+                    wifiSelect.style.display = 'block';
+                    wifiScanBtn.style.display = 'block';
+                    wifiManualBtn.textContent = 'Manual';
+                    manualSsid.value = '';
+                }
+            });
+
+            wifiConnectBtn.addEventListener('click', async () => {
+                const ssid = isManualMode ? manualSsid.value.trim() : wifiSelect.value;
+                const password = wifiPassword.value;
+
+                if (!ssid) {
+                    showWifiStatus('Please select or enter a network', true);
+                    return;
+                }
+
+                wifiConnectBtn.disabled = true;
+                wifiConnectBtn.textContent = 'Connecting...';
+
+                try {
+                    const response = await fetch('/api/wifi/connect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ssid, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        showWifiStatus(data.message);
+                        wifiPassword.value = '';
+                        await loadCurrentNetwork();
+                    } else {
+                        showWifiStatus(data.message || 'Connection failed', true);
+                    }
+                } catch (error) {
+                    console.error('Error connecting to WiFi:', error);
+                    showWifiStatus('Error connecting to network', true);
+                } finally {
+                    wifiConnectBtn.disabled = false;
+                    wifiConnectBtn.textContent = 'Connect';
+                }
+            });
+
+            // Load current network when WiFi modal opens
+            const originalShowWifi = showWifiModal;
+            showWifiModal = async function(e) {
+                await originalShowWifi(e);
+                await loadCurrentNetwork();
+            };
+
             // --- DYNAMIC DATA REFRESH LOGIC ---
             const refreshIntervalMs = {{ refresh_interval * 1000 }};
+
+            function cleanCopyright(text) {
+                if (!text) return "";
+                const lines = text.split(/\r?\n/);
+                const cleaned = lines.map(line => line.trim())
+                    .filter(line => line && !line.startsWith("URL:"))
+                    .map(line => line.startsWith("Attribution:") ? line.replace(/^Attribution:\s*/i, "") : line);
+                return cleaned.join(" ").trim();
+            }
 
             function updateConfidenceCircle(index, confidence) {
                 const container = document.getElementById(`confidence-container-${index}`);
@@ -447,8 +690,9 @@
                 document.getElementById(`name-${index}`).textContent = bird.name;
                 document.getElementById(`time-${index}`).textContent = bird.time_display;
                 const copyrightElem = document.getElementById(`copyright-${index}`);
-                if (bird.copyright && bird.copyright.trim() !== "") {
-                    copyrightElem.textContent = bird.copyright;
+                const cleanCopy = cleanCopyright(bird.copyright);
+                if (cleanCopy) {
+                    copyrightElem.textContent = cleanCopy;
                     copyrightElem.style.display = "block";
                 } else {
                     copyrightElem.textContent = "";
@@ -507,9 +751,10 @@
                         updateConfidenceCircle({{ i }}, {{ birds[i].confidence_value }});
                     {% endif %}
                     const copyrightElem{{ i }} = document.getElementById('copyright-{{ i }}');
-                    const copyrightText{{ i }} = "{{ birds[i].copyright }}";
-                    if (copyrightText{{ i }} && copyrightText{{ i }}.trim() !== "") {
-                        copyrightElem{{ i }}.textContent = copyrightText{{ i }};
+                    const copyrightText{{ i }} = {{ birds[i].copyright | tojson | default('""', true) }};
+                    const cleanCopy{{ i }} = cleanCopyright(copyrightText{{ i }});
+                    if (cleanCopy{{ i }}) {
+                        copyrightElem{{ i }}.textContent = cleanCopy{{ i }};
                         copyrightElem{{ i }}.style.display = "block";
                     } else {
                         copyrightElem{{ i }}.style.display = "none";
