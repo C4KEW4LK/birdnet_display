@@ -49,6 +49,40 @@ def format_author_name(author_str):
         return cleaned_author[:cut_off_point] + " ..." if cut_off_point != -1 else cleaned_author[:20] + " ..."
     return cleaned_author
 
+UNWANTED_KEYWORDS = ("egg", "maps", "illustration", "scanned", "specimen", "habitat", "distribution", "range", "preserved")
+
+def extract_description_text(page_soup):
+    """Try to extract a short description from a Wikimedia file page."""
+    candidates = []
+    desc_div = page_soup.find('div', class_=re.compile('description', re.I))
+    if desc_div:
+        candidates.append(desc_div.get_text(" ", strip=True))
+    content_div = page_soup.find('div', id='mw-content-text')
+    if content_div:
+        first_p = content_div.find('p')
+        if first_p:
+            candidates.append(first_p.get_text(" ", strip=True))
+    for text in candidates:
+        if text:
+            return text
+    return ""
+
+def extract_description_text(page_soup):
+    """Try to extract a short description from a Wikimedia file page."""
+    candidates = []
+    desc_div = page_soup.find('div', class_=re.compile('description', re.I))
+    if desc_div:
+        candidates.append(desc_div.get_text(" ", strip=True))
+    content_div = page_soup.find('div', id='mw-content-text')
+    if content_div:
+        first_p = content_div.find('p')
+        if first_p:
+            candidates.append(first_p.get_text(" ", strip=True))
+    for text in candidates:
+        if text:
+            return text
+    return ""
+
 def load_species_from_file(filename):
     """Loads a list of bird species from a CSV file (common_name, scientific_name)."""
     if not os.path.exists(filename): return []
@@ -205,7 +239,7 @@ def find_optimal_image_size(page_soup):
 
     return None
 
-def _fetch_and_parse_wikimedia_search(search_query, num_images):
+def _fetch_and_parse_wikimedia_search(search_query, num_images, existing_urls):
     """Helper function to perform a single search query on Wikimedia and parse results."""
     base_url = "https://commons.wikimedia.org"
     search_url = f"{base_url}/w/index.php?search={quote_plus(search_query)}&title=Special:MediaSearch&go=Go&type=image"
@@ -215,7 +249,10 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images):
         soup = BeautifulSoup(response.text, 'html.parser')
         result_elements = soup.select('a.sdms-image-result')
         image_data = []
-        for result_a_tag in list(dict.fromkeys(result_elements))[:num_images]:
+        seen_urls = set()
+        for result_a_tag in list(dict.fromkeys(result_elements)):
+            if len(image_data) >= num_images:
+                break
             file_page_url = urljoin(base_url, result_a_tag.get('href', ''))
             img_tag = result_a_tag.find('img')
             if not file_page_url or not img_tag or not img_tag.get('data-src'): continue
@@ -223,6 +260,13 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images):
             try:
                 page_response = get_session().get(file_page_url, timeout=10)
                 page_soup = BeautifulSoup(page_response.text, 'html.parser')
+                description_text = extract_description_text(page_soup)
+                if description_text:
+                    desc_lower = description_text.lower()
+                    if any(keyword in desc_lower for keyword in UNWANTED_KEYWORDS):
+                        with print_lock:
+                            print(f"[SKIP] Skipping image because description mentions unwanted keyword for query '{search_query}'")
+                        continue
 
                 # Get attribution
                 attribution = "Wikimedia Commons"
@@ -241,12 +285,19 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images):
                         optimal_url = 'https:' + optimal_url
                     elif optimal_url.startswith('/'):
                         optimal_url = base_url + optimal_url
-                    image_data.append({'url': optimal_url, 'attribution': final_attribution})
+                    candidate_url = optimal_url
                 else:
                     # Fallback to full resolution if optimal size not found
                     thumbnail_url = img_tag['data-src']
-                    full_res_url = thumbnail_url.replace('/thumb', '').rsplit('/', 1)[0]
-                    image_data.append({'url': full_res_url, 'attribution': final_attribution})
+                    candidate_url = thumbnail_url.replace('/thumb', '').rsplit('/', 1)[0]
+
+                if candidate_url in existing_urls or candidate_url in seen_urls:
+                    with print_lock:
+                        print(f"[SKIP] Duplicate image URL detected, skipping: {candidate_url}")
+                    continue
+
+                image_data.append({'url': candidate_url, 'attribution': final_attribution})
+                seen_urls.add(candidate_url)
 
             except requests.exceptions.RequestException: continue
         return image_data
@@ -254,27 +305,38 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images):
         print(f"Error scraping Wikimedia for query '{search_query}': {e}")
         return []
 
-def scrape_wikimedia_for_image_data(common_name, scientific_name, num_images):
+def scrape_wikimedia_for_image_data(common_name, scientific_name, num_images, existing_urls):
     """Searches Wikimedia with a priority of queries to find the best quality images."""
     search_queries = [f"{common_name} {scientific_name} bird", f"{scientific_name} bird", f"{common_name} bird"]
+    collected = []
     for query in search_queries:
-        image_data = _fetch_and_parse_wikimedia_search(query, num_images)
-        if image_data: return image_data
-    return []
+        if len(collected) >= num_images:
+            break
+        needed = num_images - len(collected)
+        image_data = _fetch_and_parse_wikimedia_search(query, needed, existing_urls | {img['url'] for img in collected})
+        collected.extend(image_data)
+    return collected
 
-def download_image_and_attribution(image_info, folder_path, file_name_base):
-    """Downloads an image and saves its attribution, skipping if files already exist."""
+def download_image_and_attribution(image_info, folder_path, file_name_base, existing_urls):
+    """Downloads an image and saves its attribution, skipping if files already exist or cached URL matches."""
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
     file_ext = os.path.splitext(image_info['url'].split('(')[0])[-1] or ".jpg"
     image_file_path = os.path.join(folder_path, f"{file_name_base}{file_ext}")
     attr_file_path = os.path.join(folder_path, f"{file_name_base}.txt")
+    if image_info['url'] in existing_urls:
+        with print_lock:
+            print(f"[SKIP] URL already cached for {file_name_base}")
+        return
     if os.path.exists(image_file_path) and os.path.exists(attr_file_path): return
     try:
         image_response = get_session().get(image_info['url'], timeout=15)
         image_response.raise_for_status()
         with open(image_file_path, 'wb') as f: f.write(image_response.content)
-        with open(attr_file_path, 'w', encoding='utf-8') as f: f.write(image_info['attribution'])
+        with open(attr_file_path, 'w', encoding='utf-8') as f:
+            f.write(f"URL: {image_info['url']}\n")
+            f.write(f"Attribution: {image_info['attribution']}")
+        existing_urls.add(image_info['url'])
         with print_lock:
             print(f"Successfully cached {os.path.basename(image_file_path)}")
     except (requests.exceptions.RequestException, IOError) as e:
@@ -287,6 +349,17 @@ def process_species(species_info):
     common_name, scientific_name = species_info
     species_folder_name = "".join(c for c in common_name if c.isalnum() or c in ' _').rstrip().replace(' ', '_')
     species_folder_path = os.path.join(CACHE_DIRECTORY, species_folder_name)
+    existing_urls = set()
+    if os.path.isdir(species_folder_path):
+        for fname in os.listdir(species_folder_path):
+            if fname.lower().endswith('.txt'):
+                try:
+                    with open(os.path.join(species_folder_path, fname), 'r', encoding='utf-8') as f:
+                        for line in f:
+                            if line.startswith("URL:"):
+                                existing_urls.add(line.split("URL:", 1)[1].strip())
+                except OSError:
+                    continue
 
     # Check if already cached
     if os.path.isdir(species_folder_path):
@@ -297,14 +370,16 @@ def process_species(species_info):
             return common_name, True
 
     # Fetch and download images
-    image_infos = scrape_wikimedia_for_image_data(common_name, scientific_name, IMAGES_PER_SPECIES)
+    current_images = len([f for f in os.listdir(species_folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]) if os.path.isdir(species_folder_path) else 0
+    needed = max(IMAGES_PER_SPECIES - current_images, 0)
+    image_infos = scrape_wikimedia_for_image_data(common_name, scientific_name, needed, existing_urls)
     if not image_infos:
         with print_lock:
             print(f"✗ No images found for '{common_name}'")
         return common_name, False
 
     for i, info in enumerate(image_infos):
-        download_image_and_attribution(info, species_folder_path, f"{species_folder_name}_{i+1}")
+        download_image_and_attribution(info, species_folder_path, f"{species_folder_name}_{i+1+current_images}", existing_urls)
 
     return common_name, True
 
@@ -334,34 +409,68 @@ def ensure_cache_is_built():
     print("--- Image cache check complete. ---")
 
 def resize_cached_images():
-    """Resizes large images to fill the target screen size while maintaining aspect ratio."""
+    """Resizes large images to fill the target screen size while maintaining aspect ratio (multi-threaded with progress)."""
     print("--- Checking and resizing large cached images... ---")
     target_width = 800
     target_height = 600
+
+    # Collect all image paths first
+    image_paths = []
     for root, _, files in os.walk(CACHE_DIRECTORY):
         for file in files:
             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                image_path = os.path.join(root, file)
-                try:
-                    with Image.open(image_path) as img:
-                        w, h = img.size
+                image_paths.append(os.path.join(root, file))
 
-                        # Skip if already at or below target size
-                        if w <= target_width and h <= target_height:
-                            continue
+    total = len(image_paths)
+    if total == 0:
+        print("[INFO] No cached images found to resize.")
+        return
 
-                        # Calculate scale to FILL the screen (use max instead of min)
-                        # This ensures at least one dimension meets the target
-                        scale = max(target_width / w, target_height / h)
-                        new_width = int(w * scale)
-                        new_height = int(h * scale)
+    bar_len = 30
+    resized = 0
+    skipped = 0
+    errors = 0
+    completed = 0
 
-                        print(f"Downscaling {file} from {w}x{h} to {new_width}x{new_height}...")
-                        resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                        resized_img.save(image_path)
-                except Exception as e:
-                    print(f"Could not resize {image_path}. Error: {e}")
-    print("--- Image resizing complete. ---")
+    def resize_one(image_path):
+        try:
+            with Image.open(image_path) as img:
+                w, h = img.size
+                # Skip if already at or below target size
+                if w <= target_width and h <= target_height:
+                    return False, image_path
+
+                scale = max(target_width / w, target_height / h)
+                new_width = int(w * scale)
+                new_height = int(h * scale)
+
+                resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                resized_img.save(image_path)
+                return True, image_path
+        except Exception:
+            return None, image_path
+
+    def print_progress():
+        filled = int(bar_len * (completed / total))
+        bar = "#" * filled + "-" * (bar_len - filled)
+        print(f"\r[{completed}/{total}] [{bar}] resized:{resized} skipped:{skipped} errors:{errors}", end="", flush=True)
+
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(resize_one, path): path for path in image_paths}
+        for future in as_completed(futures):
+            result, path = future.result()
+            with print_lock:
+                completed += 1
+                if result is True:
+                    resized += 1
+                elif result is False:
+                    skipped += 1
+                else:
+                    errors += 1
+                print_progress()
+
+    print()  # newline after progress bar
+    print(f"--- Image resizing complete. Resized: {resized}, Skipped: {skipped}, Errors: {errors}. ---")
 
 # This allows the script to be run directly from the command line
 if __name__ == '__main__':
