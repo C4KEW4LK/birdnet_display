@@ -104,6 +104,92 @@ def get_local_ip():
         s.close()
     return IP
 
+def get_interface_ip(interface):
+    """Get IP address for a specific network interface."""
+    try:
+        result = subprocess.run(
+            ['ip', 'addr', 'show', interface],
+            capture_output=True, text=True, timeout=5
+        )
+        # Parse output for inet address
+        match = re.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)', result.stdout)
+        if match:
+            return match.group(1)
+    except Exception as e:
+        print(f"[INFO] Could not get IP for {interface}: {e}")
+    return None
+
+def is_wlan0_connected():
+    """Check if wlan0 is connected to a WiFi network."""
+    try:
+        result = subprocess.run(
+            ['nmcli', '-t', '-f', 'DEVICE,STATE', 'device', 'status'],
+            capture_output=True, text=True, timeout=5
+        )
+        for line in result.stdout.strip().split('\n'):
+            if line.startswith('wlan0:'):
+                state = line.split(':')[1]
+                return state == 'connected'
+    except Exception as e:
+        print(f"[INFO] Could not check wlan0 status: {e}")
+    return False
+
+def get_ap_info():
+    """Get Access Point information for wlan1."""
+    try:
+        # Get wlan1 IP address
+        wlan1_ip = get_interface_ip('wlan1')
+        if not wlan1_ip:
+            wlan1_ip = "10.42.0.1"  # Default AP IP
+
+        # Get AP SSID from NetworkManager connection
+        ssid = None
+        password = None
+
+        # Try to get active AP connection on wlan1
+        result = subprocess.run(
+            ['nmcli', '-t', '-f', 'NAME,DEVICE', 'connection', 'show', '--active'],
+            capture_output=True, text=True, timeout=5
+        )
+
+        ap_connection_name = None
+        for line in result.stdout.strip().split('\n'):
+            if 'wlan1' in line:
+                ap_connection_name = line.split(':')[0]
+                break
+
+        if ap_connection_name:
+            # Get SSID
+            result = subprocess.run(
+                ['nmcli', '-t', '-f', '802-11-wireless.ssid', 'connection', 'show', ap_connection_name],
+                capture_output=True, text=True, timeout=5
+            )
+            ssid_line = result.stdout.strip()
+            if ssid_line and ':' in ssid_line:
+                ssid = ssid_line.split(':', 1)[1]
+
+            # Get password
+            result = subprocess.run(
+                ['nmcli', '-s', '-t', '-f', '802-11-wireless-security.psk', 'connection', 'show', ap_connection_name],
+                capture_output=True, text=True, timeout=5
+            )
+            password_line = result.stdout.strip()
+            if password_line and ':' in password_line:
+                password = password_line.split(':', 1)[1]
+
+        return {
+            'ssid': ssid or 'Birdhost',
+            'password': password or 'birdnetpass',
+            'ip': wlan1_ip
+        }
+    except Exception as e:
+        print(f"[INFO] Could not get AP info: {e}")
+        return {
+            'ssid': 'Birdhost',
+            'password': 'birdnetpass',
+            'ip': '10.42.0.1'
+        }
+
 @app.route('/qr_code.png')
 def qr_code():
     ip = get_local_ip()
@@ -113,6 +199,30 @@ def qr_code():
     img.save(buf)
     buf.seek(0)
     return send_file(buf, mimetype='image/png')
+
+@app.route('/api/connection_info')
+def connection_info():
+    """Return connection information based on wlan0 status."""
+    wlan0_connected = is_wlan0_connected()
+
+    if wlan0_connected:
+        # Normal mode - show regular IP and QR
+        ip = get_local_ip()
+        return jsonify({
+            'mode': 'connected',
+            'ip': ip,
+            'url': f"http://{ip}:8080"
+        })
+    else:
+        # AP mode - show AP details
+        ap_info = get_ap_info()
+        return jsonify({
+            'mode': 'ap',
+            'ssid': ap_info['ssid'],
+            'password': ap_info['password'],
+            'ip': ap_info['ip'],
+            'url': f"http://{ap_info['ip']}:5000"
+        })
 
 # --- Time Helper Functions ---
 def parse_absolute_time_to_seconds_ago(time_str):
@@ -179,23 +289,36 @@ def get_offline_fallback_data():
     print("[INFO] Loading data from local cache.")
     species_list = load_species_from_file(SPECIES_FILE)
     if not species_list: return []
-    fallback_data = []
-    num_to_sample = min(len(species_list), 4)
-    sampled_species = random.sample(species_list, num_to_sample)
-    for common_name, scientific_name in sampled_species:
+
+    # Filter species to only those with cached images
+    species_with_images = []
+    for common_name, scientific_name in species_list:
         cached_asset = get_cached_image(common_name)
         if cached_asset:
-            fallback_data.append({
-                "name": common_name, "time_display": "Offline", "confidence": "0%",
-                "confidence_value": 0, "image_url": cached_asset['image_url'],
-                "copyright": cached_asset['copyright'], "time_raw": "", "is_offline": True
-            })
+            species_with_images.append((common_name, scientific_name, cached_asset))
+
+    if not species_with_images:
+        print("[WARNING] No cached images found for any species")
+        return []
+
+    # Sample from species that actually have images
+    num_to_sample = min(len(species_with_images), 4)
+    sampled_species = random.sample(species_with_images, num_to_sample)
+
+    fallback_data = []
+    for common_name, scientific_name, cached_asset in sampled_species:
+        fallback_data.append({
+            "name": common_name, "time_display": "Offline", "confidence": "0%",
+            "confidence_value": 0, "image_url": cached_asset['image_url'],
+            "copyright": cached_asset['copyright'], "time_raw": "", "is_offline": True
+        })
+
     return fallback_data
 
 def get_bird_data():
     server_ip = get_local_ip()
     api_url = urljoin(BASE_URL, API_ENDPOINT)
-    params = {'limit': 50}
+    params = {'limit': 200}  # Increased from 50 to get more detection history
     try:
         response = requests.get(api_url, headers=HEADERS, proxies=PROXIES, timeout=10, params=params)
         response.raise_for_status()
@@ -235,24 +358,41 @@ def get_bird_data():
                 unique_unpinned.append(bird)
                 seen_names.add(bird['name'])
 
-        # Combine: pinned first, then unpinned, limit to 4
-        final_list = pinned_birds + unique_unpinned
-        final_list = final_list[:4]
+        print(f"[DEBUG] Found {len(pinned_birds)} pinned birds and {len(unique_unpinned)} unique unpinned species from {len(all_parsed)} total detections")
 
-        # Check image URLs for only these final 4 birds
-        for bird in final_list:
+        # Combine: pinned first, then unpinned
+        combined_list = pinned_birds + unique_unpinned
+
+        # Check image URLs and filter out birds without valid images
+        final_list = []
+        for bird in combined_list:
+            has_valid_image = False
+
             if bird.get('image_url'):
-                if not check_image_url_fast(bird['image_url']):
+                if check_image_url_fast(bird['image_url']):
+                    has_valid_image = True
+                else:
+                    # API image not available, try cache
                     cached_asset = get_cached_image(bird['name'])
                     if cached_asset:
                         bird['image_url'] = cached_asset['image_url']
                         bird['copyright'] = cached_asset['copyright']
+                        has_valid_image = True
             else:
-                # No image URL, use cache
+                # No image URL from API, use cache
                 cached_asset = get_cached_image(bird['name'])
                 if cached_asset:
                     bird['image_url'] = cached_asset['image_url']
                     bird['copyright'] = cached_asset['copyright']
+                    has_valid_image = True
+
+            # Only include birds with valid images
+            if has_valid_image:
+                final_list.append(bird)
+                if len(final_list) >= 4:
+                    break
+
+        print(f"[DEBUG] Final list has {len(final_list)} birds with valid images")
 
         new_id = "-".join([f"{d['name']}_{d['time_raw']}" for d in final_list])
 
@@ -304,10 +444,12 @@ def audio_status():
         response.raise_for_status()
         status_data = response.json()
         is_connected = status_data.get("streaming") is True
+        rssi = status_data.get("wifi_rssi", 0)  # Get WiFi RSSI value, default to 0 if not present
     except (requests.exceptions.RequestException, json.JSONDecodeError, KeyError):
         print("[INFO] Microphone status unavailable")
         is_connected = False
-    return jsonify({"connected": is_connected})
+        rssi = 0
+    return jsonify({"connected": is_connected, "rssi": rssi})
 
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
@@ -443,19 +585,67 @@ def wifi_connect():
         if not ssid:
             return jsonify({'status': 'error', 'message': 'SSID is required'}), 400
 
+        # First, try to delete any existing connection with this SSID to avoid conflicts
+        subprocess.run(
+            ['nmcli', 'con', 'delete', ssid],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        # Ignore errors from delete - connection might not exist
+
+        # Scan to find the network and its security type
+        scan_result = subprocess.run(
+            ['nmcli', '-t', '-f', 'SSID,SECURITY', 'dev', 'wifi', 'list', 'ifname', 'wlan0'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        security_type = None
+        if scan_result.returncode == 0:
+            for line in scan_result.stdout.strip().split('\n'):
+                if line.startswith(f"{ssid}:"):
+                    parts = line.split(':')
+                    if len(parts) >= 2:
+                        security_type = parts[1].strip()
+                        break
+
         # Connect to network on wlan0 interface
-        if password:
-            # Create new connection with password
+        if not password or security_type == '' or security_type == 'Open':
+            # Connect to open network (no password)
             result = subprocess.run(
-                ['nmcli', 'dev', 'wifi', 'connect', ssid, 'password', password, 'ifname', 'wlan0'],
+                ['nmcli', 'dev', 'wifi', 'connect', ssid, 'ifname', 'wlan0'],
                 capture_output=True,
                 text=True,
                 timeout=30
             )
         else:
-            # Connect to open network
+            # For WPA/WPA2 networks, use connection add with explicit security settings
+            # Delete any auto-created connection first
+            subprocess.run(['nmcli', 'con', 'delete', ssid], capture_output=True, timeout=5)
+
+            # Create connection with explicit WPA-PSK security
             result = subprocess.run(
-                ['nmcli', 'dev', 'wifi', 'connect', ssid, 'ifname', 'wlan0'],
+                ['nmcli', 'con', 'add',
+                 'type', 'wifi',
+                 'ifname', 'wlan0',
+                 'con-name', ssid,
+                 'ssid', ssid,
+                 'wifi-sec.key-mgmt', 'wpa-psk',
+                 'wifi-sec.psk', password],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode != 0:
+                error_msg = result.stderr.strip() if result.stderr else 'Failed to create connection'
+                return jsonify({'status': 'error', 'message': error_msg}), 500
+
+            # Now activate the connection
+            result = subprocess.run(
+                ['nmcli', 'con', 'up', ssid, 'ifname', 'wlan0'],
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -500,6 +690,51 @@ def wifi_current():
     except Exception as e:
         print(f"Error getting current WiFi: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/wifi/signal', methods=['GET'])
+def wifi_signal():
+    """Get WiFi signal strength for wlan0."""
+    try:
+        # Check if wlan0 is connected
+        state_result = subprocess.run(
+            ['nmcli', '-g', 'GENERAL.STATE', 'dev', 'show', 'wlan0'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if state_result.returncode != 0:
+            return jsonify({'status': 'error', 'message': 'Failed to check WiFi state', 'signal': 0}), 200
+
+        state = state_result.stdout.strip()
+        # State will be something like "100 (connected)" or "30 (disconnected)"
+        if 'connected' not in state.lower():
+            return jsonify({'status': 'error', 'message': 'WiFi disconnected', 'signal': 0}), 200
+
+        # Get signal strength for active connection on wlan0
+        result = subprocess.run(
+            ['nmcli', '-t', '-f', 'ACTIVE,SIGNAL', 'dev', 'wifi', 'list', 'ifname', 'wlan0'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode != 0:
+            return jsonify({'status': 'error', 'message': 'Failed to get signal strength', 'signal': 0}), 200
+
+        # Find the active connection (marked with 'yes' in ACTIVE field)
+        lines = result.stdout.strip().split('\n')
+        for line in lines:
+            if line.startswith('yes:'):
+                signal_str = line.split(':')[1].strip()
+                if signal_str:
+                    signal = int(signal_str)
+                    return jsonify({'status': 'success', 'signal': signal})
+
+        return jsonify({'status': 'error', 'message': 'No active connection', 'signal': 0}), 200
+    except Exception as e:
+        print(f"Error getting WiFi signal: {e}")
+        return jsonify({'status': 'error', 'message': str(e), 'signal': 0}), 200
 
 
 # --- Main Execution ---

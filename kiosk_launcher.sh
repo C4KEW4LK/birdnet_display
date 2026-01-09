@@ -22,4 +22,19 @@ if [ -z "$BROWSER_PATH" ]; then
   exit 1
 fi
 
-exec "$BROWSER_PATH" --noerrdialogs --disable-infobars --kiosk --password-store=basic --ozone-platform=wayland --enable-features=UseOzonePlatform http://localhost:5000
+# Disable screen blanking (suppress errors if DPMS extension not available)
+xset s off 2>/dev/null
+xset -dpms 2>/dev/null
+xset s noblank 2>/dev/null
+
+echo "Starting Chromium in kiosk mode..."
+echo "Note: On-screen keyboard is provided by the web interface"
+
+exec "$BROWSER_PATH" \
+  --noerrdialogs \
+  --disable-infobars \
+  --kiosk \
+  --password-store=basic \
+  --disable-features=TranslateUI \
+  --check-for-update-interval=31536000 \
+  http://localhost:5000

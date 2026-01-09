@@ -7,6 +7,8 @@ from PIL import Image
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import time
+import random
 
 # --- Constants and Configuration ---
 CACHE_DIRECTORY = "static/bird_images_cache"
@@ -15,9 +17,22 @@ IMAGES_PER_SPECIES = 3
 BIRDNET_API_BASE = "http://localhost:8080"
 MIN_IMAGE_WIDTH = 800
 MIN_IMAGE_HEIGHT = 600
-MAX_WORKERS = 10  # Number of parallel download threads
+MAX_WORKERS = 3  # Number of parallel download threads (reduced to avoid triggering rate limits)
+REQUEST_DELAY = 0.5  # Delay between requests in seconds (reduced since we're mimicking browser better)
+SKIP_QUALITY_CHECKS = False  # Set to True to skip description checks for faster caching (saves ~50% of page fetches)
 HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0',
 }
 
 # Thread-safe print lock
@@ -25,6 +40,8 @@ print_lock = threading.Lock()
 
 # Session will be created when needed
 _session = None
+_last_request_time = 0
+_request_lock = threading.Lock()
 
 def get_session():
     """Get or create a requests session for connection pooling."""
@@ -33,6 +50,45 @@ def get_session():
         _session = requests.Session()
         _session.headers.update(HEADERS)
     return _session
+
+def rate_limited_get(url, timeout=10, max_retries=3):
+    """Make a GET request with rate limiting and retry logic for 429 errors."""
+    global _last_request_time
+
+    for attempt in range(max_retries):
+        # Rate limiting: ensure minimum delay between requests with natural variation
+        with _request_lock:
+            current_time = time.time()
+            time_since_last = current_time - _last_request_time
+            # Add random variation (±30%) to look more human
+            actual_delay = REQUEST_DELAY * random.uniform(0.7, 1.3)
+            if time_since_last < actual_delay:
+                time.sleep(actual_delay - time_since_last)
+            _last_request_time = time.time()
+
+        try:
+            response = get_session().get(url, timeout=timeout)
+
+            # Handle 429 rate limit errors with exponential backoff
+            if response.status_code == 429:
+                retry_after = int(response.headers.get('Retry-After', 5))
+                backoff_time = min(retry_after, 2 ** attempt * 5)  # Exponential backoff, max based on retry-after
+                with print_lock:
+                    print(f"[RATE LIMIT] 429 error. Waiting {backoff_time}s before retry {attempt + 1}/{max_retries}")
+                time.sleep(backoff_time)
+                continue
+
+            response.raise_for_status()
+            return response
+
+        except requests.exceptions.RequestException as e:
+            if attempt == max_retries - 1:
+                raise
+            with print_lock:
+                print(f"[RETRY] Request failed, attempt {attempt + 1}/{max_retries}: {e}")
+            time.sleep(2 ** attempt)  # Exponential backoff
+
+    raise requests.exceptions.RequestException(f"Failed after {max_retries} attempts")
 
 # Color codes for terminal output
 YELLOW = '\033[1;33m'
@@ -49,23 +105,7 @@ def format_author_name(author_str):
         return cleaned_author[:cut_off_point] + " ..." if cut_off_point != -1 else cleaned_author[:20] + " ..."
     return cleaned_author
 
-UNWANTED_KEYWORDS = ("egg", "maps", "illustration", "scanned", "specimen", "habitat", "distribution", "range", "preserved")
-
-def extract_description_text(page_soup):
-    """Try to extract a short description from a Wikimedia file page."""
-    candidates = []
-    desc_div = page_soup.find('div', class_=re.compile('description', re.I))
-    if desc_div:
-        candidates.append(desc_div.get_text(" ", strip=True))
-    content_div = page_soup.find('div', id='mw-content-text')
-    if content_div:
-        first_p = content_div.find('p')
-        if first_p:
-            candidates.append(first_p.get_text(" ", strip=True))
-    for text in candidates:
-        if text:
-            return text
-    return ""
+UNWANTED_KEYWORDS = ("egg", "map", "illustration", "scanned", "specimen", "habitat", "distribution", "preserved")
 
 def extract_description_text(page_soup):
     """Try to extract a short description from a Wikimedia file page."""
@@ -202,6 +242,27 @@ def update_species_list_from_api():
     return save_species_to_file(species_list, SPECIES_FILE)
 
 # --- Web Scraping and Downloading ---
+def construct_optimal_thumbnail_url(thumbnail_url, target_width=1024):
+    """Construct a thumbnail URL with specific size without fetching the file page."""
+    try:
+        # Wikimedia thumbnail URLs have pattern: .../thumb/.../filename/XXXpx-filename
+        # We can construct the desired size directly
+        if '/thumb/' in thumbnail_url:
+            # Extract the base filename
+            parts = thumbnail_url.rsplit('/', 1)
+            if len(parts) == 2:
+                base_path = parts[0]
+                # Construct new thumbnail with target width
+                # Get the original filename from the base path
+                filename_match = re.search(r'/([^/]+)$', base_path.rsplit('/thumb/', 1)[1])
+                if filename_match:
+                    filename = filename_match.group(1)
+                    # Construct the thumbnail URL
+                    return f"{base_path}/{target_width}px-{filename}"
+        return thumbnail_url
+    except Exception:
+        return thumbnail_url
+
 def find_optimal_image_size(page_soup):
     """Find the smallest image size that meets minimum requirements from Wikimedia page."""
     # Look for the "Other resolutions" section
@@ -244,8 +305,8 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images, existing_urls):
     base_url = "https://commons.wikimedia.org"
     search_url = f"{base_url}/w/index.php?search={quote_plus(search_query)}&title=Special:MediaSearch&go=Go&type=image"
     try:
-        response = get_session().get(search_url)
-        response.raise_for_status()
+        # Use rate-limited request for search too
+        response = rate_limited_get(search_url)
         soup = BeautifulSoup(response.text, 'html.parser')
         result_elements = soup.select('a.sdms-image-result')
         image_data = []
@@ -258,43 +319,48 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images, existing_urls):
             if not file_page_url or not img_tag or not img_tag.get('data-src'): continue
 
             try:
-                page_response = get_session().get(file_page_url, timeout=10)
-                page_soup = BeautifulSoup(page_response.text, 'html.parser')
-                description_text = extract_description_text(page_soup)
-                if description_text:
-                    desc_lower = description_text.lower()
-                    if any(keyword in desc_lower for keyword in UNWANTED_KEYWORDS):
-                        with print_lock:
-                            print(f"[SKIP] Skipping image because description mentions unwanted keyword for query '{search_query}'")
-                        continue
+                thumbnail_url = img_tag['data-src']
 
-                # Get attribution
-                attribution = "Wikimedia Commons"
-                author_header = page_soup.find('td', string=re.compile(r'^\s*Author\s*$'))
-                if author_header and author_header.find_next_sibling('td'):
-                    attribution_cell = author_header.find_next_sibling('td')
-                    attribution = attribution_cell.get_text(strip=True, separator=' ').split('(')[0].strip()
-                formatted_attribution = format_author_name(attribution)
-                final_attribution = f"© {formatted_attribution}" if formatted_attribution else "© Wikimedia Commons"
+                # Construct optimal size URL directly from thumbnail (saves a page fetch!)
+                candidate_url = construct_optimal_thumbnail_url(thumbnail_url, target_width=1024)
 
-                # Find optimal image size
-                optimal_url = find_optimal_image_size(page_soup)
-                if optimal_url:
-                    # Make sure it's an absolute URL
-                    if optimal_url.startswith('//'):
-                        optimal_url = 'https:' + optimal_url
-                    elif optimal_url.startswith('/'):
-                        optimal_url = base_url + optimal_url
-                    candidate_url = optimal_url
-                else:
-                    # Fallback to full resolution if optimal size not found
-                    thumbnail_url = img_tag['data-src']
-                    candidate_url = thumbnail_url.replace('/thumb', '').rsplit('/', 1)[0]
+                # Make sure it's an absolute URL
+                if candidate_url.startswith('//'):
+                    candidate_url = 'https:' + candidate_url
+                elif candidate_url.startswith('/'):
+                    candidate_url = base_url + candidate_url
 
                 if candidate_url in existing_urls or candidate_url in seen_urls:
-                    with print_lock:
-                        print(f"[SKIP] Duplicate image URL detected, skipping: {candidate_url}")
                     continue
+
+                # Fetch file page for attribution and quality checks (unless skipped)
+                if SKIP_QUALITY_CHECKS:
+                    # Fast mode: skip quality checks, use generic attribution
+                    final_attribution = "© Wikimedia Commons"
+                else:
+                    # Fetch page for quality checks and detailed attribution
+                    # Use rate-limited request for file page
+                    page_response = rate_limited_get(file_page_url, timeout=10)
+                    page_soup = BeautifulSoup(page_response.text, 'html.parser')
+
+                    # Quick description check to filter unwanted images
+                    description_text = extract_description_text(page_soup)
+                    if description_text:
+                        desc_lower = description_text.lower()
+                        matched_keyword = next((keyword for keyword in UNWANTED_KEYWORDS if keyword in desc_lower), None)
+                        if matched_keyword:
+                            with print_lock:
+                                print(f"[SKIP] Skipping image because description mentions unwanted keyword '{matched_keyword}' for query '{search_query}'")
+                            continue
+
+                    # Get attribution
+                    attribution = "Wikimedia Commons"
+                    author_header = page_soup.find('td', string=re.compile(r'^\s*Author\s*$'))
+                    if author_header and author_header.find_next_sibling('td'):
+                        attribution_cell = author_header.find_next_sibling('td')
+                        attribution = attribution_cell.get_text(strip=True, separator=' ').split('(')[0].strip()
+                    formatted_attribution = format_author_name(attribution)
+                    final_attribution = f"© {formatted_attribution}" if formatted_attribution else "© Wikimedia Commons"
 
                 image_data.append({'url': candidate_url, 'attribution': final_attribution})
                 seen_urls.add(candidate_url)
@@ -307,14 +373,22 @@ def _fetch_and_parse_wikimedia_search(search_query, num_images, existing_urls):
 
 def scrape_wikimedia_for_image_data(common_name, scientific_name, num_images, existing_urls):
     """Searches Wikimedia with a priority of queries to find the best quality images."""
-    search_queries = [f"{common_name} {scientific_name} bird", f"{scientific_name} bird", f"{common_name} bird"]
+    # Use a single, more specific query that's most likely to succeed
+    # Scientific name + common name gives best results in one query
+    primary_query = f"{scientific_name} {common_name}"
     collected = []
-    for query in search_queries:
-        if len(collected) >= num_images:
-            break
+
+    # Try primary query with higher limit to get all needed images in one search
+    image_data = _fetch_and_parse_wikimedia_search(primary_query, num_images * 2, existing_urls)
+    collected.extend(image_data[:num_images])
+
+    # Only try fallback queries if we didn't get enough images
+    if len(collected) < num_images:
         needed = num_images - len(collected)
-        image_data = _fetch_and_parse_wikimedia_search(query, needed, existing_urls | {img['url'] for img in collected})
+        fallback_query = f"{common_name} bird"
+        image_data = _fetch_and_parse_wikimedia_search(fallback_query, needed, existing_urls | {img['url'] for img in collected})
         collected.extend(image_data)
+
     return collected
 
 def download_image_and_attribution(image_info, folder_path, file_name_base, existing_urls):
@@ -330,8 +404,7 @@ def download_image_and_attribution(image_info, folder_path, file_name_base, exis
         return
     if os.path.exists(image_file_path) and os.path.exists(attr_file_path): return
     try:
-        image_response = get_session().get(image_info['url'], timeout=15)
-        image_response.raise_for_status()
+        image_response = rate_limited_get(image_info['url'], timeout=15)
         with open(image_file_path, 'wb') as f: f.write(image_response.content)
         with open(attr_file_path, 'w', encoding='utf-8') as f:
             f.write(f"URL: {image_info['url']}\n")

@@ -1,67 +1,300 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><title>Live Bird Detections</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Live Bird Detections</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #eef1f5; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; box-sizing: border-box; }
-        body.shutdown-state, body.restart-state { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 20% 20%, #1e293b 0, #0f172a 35%, #0b1020 70%); color: #e2e8f0; }
-        body.shutdown-state h1, body.restart-state h1 { margin: 0; font-size: 2.2em; font-weight: 700; letter-spacing: 0.02em; text-shadow: none; }
-        body.shutdown-state .status-card, body.restart-state .status-card { padding: 32px 40px; border-radius: 16px; background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); box-shadow: 0 15px 45px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.08); backdrop-filter: blur(8px); text-align: center; }
-        
-        /* Base styles for components */
-        .main-layout { gap: 15px; padding: 15px; width: 100vw; height: 100vh; box-sizing: border-box; display: flex; }
-        .left-column { display: flex; flex-direction: column; flex: 2; gap: 15px; }
-        .right-column { display: flex; flex-direction: column; gap: 15px; flex: 1; }
-        .detection-card { border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.08); overflow: hidden; position: relative; color: white; transition: opacity 0.5s ease-in-out; min-height: 40vh; }
-        .card-background { position: absolute; top: -20px; left: -20px; width: calc(100% + 40px); height: calc(100% + 40px); background-size: cover; background-position: center; filter: blur(15px); z-index: 0; transition: background-image 0.5s ease-in-out; }
-        .detection-card .bird-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; border-radius: 12px; transition: opacity 0.5s ease-in-out; }
-        .card-content-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%); box-sizing: border-box; }
+        /* === ROOT & BODY === */
+        :root { --vh: 1vh; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #eef1f5;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: calc(var(--vh) * 100);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        /* Shutdown/Restart States */
+        body.shutdown-state,
+        body.restart-state {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 20% 20%, #1e293b 0, #0f172a 35%, #0b1020 70%);
+            color: #e2e8f0;
+        }
+
+        body.shutdown-state h1,
+        body.restart-state h1 {
+            margin: 0;
+            font-size: 2.2em;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-shadow: none;
+        }
+
+        body.shutdown-state .status-card,
+        body.restart-state .status-card {
+            padding: 32px 40px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+            box-shadow: 0 15px 45px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.08);
+            backdrop-filter: blur(8px);
+            text-align: center;
+        }
+
+        /* === MAIN LAYOUT === */
+        .main-layout {
+            gap: 15px;
+            padding: 15px;
+            width: 100vw;
+            height: calc(var(--vh) * 100);
+            box-sizing: border-box;
+            display: flex;
+        }
+
+        .left-column {
+            display: flex;
+            flex-direction: column;
+            flex: 2;
+            gap: 15px;
+        }
+
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+        }
+
+        /* === DETECTION CARDS === */
+        .detection-card {
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.08);
+            overflow: hidden;
+            position: relative;
+            color: white;
+            transition: opacity 0.5s ease-in-out;
+            min-height: 40vh;
+        }
+
         .main-card { flex-grow: 1; min-height: 50vh; }
         .side-card { flex: 1; min-height: 20vh; }
+
+        .card-background {
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            width: calc(100% + 40px);
+            height: calc(100% + 40px);
+            background-size: cover;
+            background-position: center;
+            filter: blur(15px);
+            z-index: 0;
+            transition: background-image 0.5s ease-in-out;
+        }
+
+        .detection-card .bird-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            z-index: 1;
+            border-radius: 12px;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .card-content-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 50%);
+            box-sizing: border-box;
+        }
+
+        /* Card Typography */
         h1 { font-size: 2.2em; }
         h2 { font-size: 1.2em; }
-        h1, h2 { margin: 0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 6px rgba(0,0,0,0.7); }
-        .time-display { font-size: 1.1em; color: #e2e8f0; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 4px rgba(0,0,0,0.7); }
+        h1, h2 {
+            margin: 0;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 2px 2px 6px rgba(0,0,0,0.7);
+        }
+
+        .time-display {
+            font-size: 1.1em;
+            color: #e2e8f0;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 1px 1px 4px rgba(0,0,0,0.7);
+        }
         .side-card .time-display { font-size: 0.9em; }
-        .copyright-display { font-size: 0.8em; color: #cbd5e1; }
-        .pin-icon-container { position: absolute; top: 0; right: 0; z-index: 3; width: 56px; height: 56px; overflow: hidden; }
-        .pin-icon { position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 56px 56px 0; border-color: transparent #f97316 transparent transparent; filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8)); }
-        .pin-icon-text { position: absolute; top: 8px; right: 8px; color: #fff; font-weight: bold; font-size: 10px; text-transform: uppercase; transform: rotate(45deg); transform-origin: center; z-index: 4; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-        .confidence-circle-container { position: relative; width: 50px; height: 50px; }
+
+        .copyright-display {
+            font-size: 0.8em;
+            color: #cbd5e1;
+            margin: 0 0 5px 0;
+            text-align: right;
+        }
+
+        /* Pin Icon */
+        .pin-icon-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 3;
+            width: 56px;
+            height: 56px;
+            overflow: hidden;
+        }
+
+        .pin-icon {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 56px 56px 0;
+            border-color: transparent #f97316 transparent transparent;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.8));
+        }
+
+        .pin-icon-text {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 10px;
+            text-transform: uppercase;
+            transform: rotate(45deg);
+            transform-origin: center;
+            z-index: 4;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+
+        /* Confidence Circle */
+        .confidence-circle-container {
+            position: relative;
+            width: 50px;
+            height: 50px;
+        }
         .main-card .confidence-circle-container { width: 60px; height: 60px; }
-        .confidence-circle { display: block; margin: 0 auto; width: 100%; height: 100%; }
-        .circle-bg { fill: none; stroke: rgba(255, 255, 255, 0.2); stroke-width: 3.8; }
-        .circle-progress { fill: none; stroke-width: 3.8; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.5s; filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.8)); }
-        .circle-text { font-size: 11px; font-weight: 600; text-anchor: middle; stroke: #000; stroke-width: 0.6px; paint-order: stroke; transition: fill 0.5s; }
+
+        .confidence-circle {
+            display: block;
+            margin: 0 auto;
+            width: 100%;
+            height: 100%;
+        }
+
+        .circle-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 3.8;
+        }
+
+        .circle-progress {
+            fill: none;
+            stroke-width: 3.8;
+            stroke-linecap: round;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+            transition: stroke-dashoffset 0.5s ease-in-out, stroke 0.5s;
+            filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.8));
+        }
+
+        .circle-text {
+            font-size: 11px;
+            font-weight: 600;
+            text-anchor: middle;
+            stroke: #000;
+            stroke-width: 0.6px;
+            paint-order: stroke;
+            transition: fill 0.5s;
+        }
         .main-card .circle-text { font-size: 10px; }
+
+        /* Card Footer */
         .footer-text p { margin: 0; }
-        .card-footer { display: flex; justify-content: space-between; align-items: flex-end; }
-        .footer-right { display: flex; align-items: flex-end; gap: 15px; }
-        .copyright-display { margin: 0 0 5px 0; text-align: right; }
-        
-        /* --- DYNAMIC LAYOUT STYLES --- */
-        .layout-1 .main-layout, .layout-3 .main-layout, .layout-4e .main-layout { display: flex; }
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .footer-right {
+            display: flex;
+            align-items: flex-end;
+            gap: 15px;
+        }
+
+        /* === DYNAMIC LAYOUT MODES === */
+        /* Layout 1: Single card */
+        .layout-1 .main-layout,
+        .layout-3 .main-layout,
+        .layout-4e .main-layout { display: flex; }
         .layout-1 .left-column { flex: 1; }
         .layout-1 .right-column { display: none; }
-        .layout-3 .left-column, .layout-4e .left-column { flex: 2; }
-        .layout-3 .right-column, .layout-4e .right-column { flex: 1; }
+
+        /* Layout 3: Three cards */
+        .layout-3 .left-column,
+        .layout-4e .left-column { flex: 2; }
+        .layout-3 .right-column,
+        .layout-4e .right-column { flex: 1; }
         .layout-3 #card-3 { display: none; }
-        .layout-4g .main-layout { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
-        .layout-4g .left-column, .layout-4g .right-column { display: contents; }
+
+        /* Layout 4g: Grid layout */
+        .layout-4g .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+        .layout-4g .left-column,
+        .layout-4g .right-column { display: contents; }
         .layout-4g .detection-card { flex: 1; }
-        .layout-4g .detection-card h1, .layout-4g .detection-card h2 { font-size: 1.8em; }
-        .layout-btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
-        .layout-btn { padding: 8px 16px; border: 1px solid #ccc; background-color: #f0f0f0; border-radius: 8px; cursor: pointer; }
-        .layout-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        .layout-4g .detection-card h1,
+        .layout-4g .detection-card h2 { font-size: 1.8em; }
+
+        /* Layout Selector Buttons */
+        .layout-btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .layout-btn {
+            padding: 8px 16px;
+            border: 1px solid #ccc;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .layout-btn.active {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
 
         /* --- MODAL AND SETTINGS STYLES --- */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: none; justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.3s; }
-        .modal-content { background-color: white; padding: 2vw; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: max-content; max-width: 95vw; max-height: 95vh; overflow-y: auto; box-sizing: border-box; position: relative; }
+        .modal-content { background-color: white; padding: 2vw; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); min-width: 600px; max-width: 95vw; max-height: 95vh; overflow-y: auto; box-sizing: border-box; position: relative; }
         .modal-content h2 { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin-top: 0; margin-bottom: 12px; font-size: 1.5em; color: #111; text-shadow: none; }
+        #qrModal .modal-content { min-width: 600px; max-width: 95vw; }
         #qrModal .modal-content img { max-width: 400px; max-height: 50vh; height: auto; display: block; margin-left: auto; margin-right: auto; }
         .modal-content p#qrUrlText { margin-top: 8px; font-family: 'Courier New', Courier, monospace; font-size: 1.5em; color: #333; font-weight: bold; white-space: nowrap; }
-        #settings-overlay { position: fixed; top: 0; left: 0; width: 100%; z-index: 2000; transform: translateY(-100%); transition: transform 0.3s ease-in-out; background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); padding-bottom: 15px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
-        #settings-overlay.visible { transform: translateY(0); }
+        #settings-overlay { position: fixed; top: 0; left: 0; width: 100%; z-index: 2000; transform: translateY(-100%); transition: transform 0.3s ease-in-out; background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); padding-bottom: 15px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,.2); pointer-events: none; }
+        #settings-overlay.visible { transform: translateY(0); pointer-events: auto; }
         #settings-menu { padding: 25px 20px 15px 20px; display: flex; justify-content: center; gap: 20px; }
         .settings-btn { padding: 12px 25px; font-size: 1.1em; font-weight: 600; border: none; border-radius: 10px; cursor: pointer; background-color: #f8fafc; color: #1e293b; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: background-color 0.2s, transform 0.2s; }
         .settings-btn:active { transform: scale(0.96); }
@@ -69,12 +302,42 @@
         #swipe-handle { width: 50px; height: 5px; background-color: rgba(255, 255, 255, 0.6); border-radius: 2.5px; margin: 0 auto; }
         #settings-icon-btn { position: absolute; top: 10px; left: 10px; background: none; border: none; cursor: pointer; padding: 5px; z-index: 10; }
         #settings-icon-btn svg { width: 28px; height: 28px; fill: #555; }
-        #mic-status-icon { position: absolute; top: 10px; right: 10px; z-index: 10; }
-        #mic-status-icon svg { width: 28px; height: 28px; transition: fill 0.3s; }
-        #mic-status-icon.connected svg { fill: #22c55e; } /* Green */
-        #mic-status-icon.disconnected svg { fill: #dc2626; } /* Red */
+
+        /* Group status icons on the right */
+        .status-icons-container { position: absolute; top: 10px; right: 10px; z-index: 10; display: flex; align-items: center; gap: 10px; }
+        #wifi-status-icon { display: flex; align-items: center; gap: 3px; position: relative; }
+        #mic-status-icon { display: flex; align-items: center; gap: 3px; position: relative; }
+
+        /* WiFi icon and bars */
+        #wifi-status-icon svg { width: 24px; height: 24px; }
+        #wifi-icon-connected path { transition: fill 0.3s; fill: #64748b; } /* Default gray */
+        #wifi-disconnected-overlay { position: absolute; left: 0; top: 0; pointer-events: none; }
+        #wifi-status-icon.wifi-excellent #wifi-icon-connected path { fill: #0ea5e9; }
+        #wifi-status-icon.wifi-good #wifi-icon-connected path { fill: #06b6d4; }
+        #wifi-status-icon.wifi-fair #wifi-icon-connected path { fill: #f59e0b; }
+        #wifi-status-icon.wifi-weak #wifi-icon-connected path { fill: #64748b; }
+        .wifi-signal-bar { transition: fill 0.3s, opacity 0.3s; fill: #cbd5e1; opacity: 0.3; } /* Default inactive */
+        #wifi-status-icon.wifi-excellent .wifi-signal-bar:not(.inactive) { fill: #0ea5e9; opacity: 1; }
+        #wifi-status-icon.wifi-good .wifi-signal-bar:not(.inactive) { fill: #06b6d4; opacity: 1; }
+        #wifi-status-icon.wifi-fair .wifi-signal-bar:not(.inactive) { fill: #f59e0b; opacity: 1; }
+        #wifi-status-icon.wifi-weak .wifi-signal-bar:not(.inactive) { fill: #64748b; opacity: 1; }
+        #wifi-status-icon.disconnected #wifi-icon-connected path { fill: #64748b; } /* Gray when disconnected */
+        .wifi-signal-bar.inactive { fill: #cbd5e1; opacity: 0.3; }
+
+        /* Mic icon and bars */
+        #mic-status-icon svg { width: 24px; height: 24px; transition: fill 0.3s; }
+        #mic-icon-connected path { transition: fill 0.3s; fill: #64748b; } /* Default gray */
+        #mic-disconnected-overlay { position: absolute; left: 0; top: 0; pointer-events: none; }
+        #mic-status-icon.connected #mic-icon-connected path { fill: #0ea5e9; } /* Blue when connected */
+        #mic-status-icon.disconnected #mic-icon-connected path { fill: #64748b; } /* Gray when disconnected */
+        .mic-signal-bar { transition: fill 0.3s, opacity 0.3s; fill: #cbd5e1; opacity: 0.3; } /* Default inactive */
+        #mic-status-icon.signal-excellent .mic-signal-bar:not(.inactive) { fill: #0ea5e9; opacity: 1; }
+        #mic-status-icon.signal-good .mic-signal-bar:not(.inactive) { fill: #06b6d4; opacity: 1; }
+        #mic-status-icon.signal-fair .mic-signal-bar:not(.inactive) { fill: #f59e0b; opacity: 1; }
+        #mic-status-icon.signal-weak .mic-signal-bar:not(.inactive) { fill: #64748b; opacity: 1; }
+        .mic-signal-bar.inactive { fill: #cbd5e1; opacity: 0.3; }
         #settingsModal { z-index: 1100; }
-        #settingsModal .modal-content { width: 400px; max-width: 90vw; color: #111; }
+        #settingsModal .modal-content { min-width: 600px; max-width: 90vw; color: #111; }
         #settingsModal h2 { margin-bottom: 25px; }
         #wifiModal { z-index: 1300; }
         #pinnedModal { z-index: 1350; }
@@ -85,7 +348,7 @@
         .restart-btn { background-color: #f97316; color: white; }
         .power-btn { background-color: #dc2626; color: white; }
         #confirmModal { z-index: 1400; }
-        #confirmModal .modal-content { width: 400px; padding: 25px; }
+        #confirmModal .modal-content { min-width: 600px; max-width: 95vw; padding: 25px; }
         #confirmMessage { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 1.2em; color: #333; font-weight: 500; margin: 10px 0 0 0; }
         #confirmButtons { display: flex; justify-content: center; gap: 15px; margin-top: 25px; }
         #confirmBtn, #cancelBtn { padding: 10px 25px; font-size: 1em; border-radius: 8px; border: none; cursor: pointer; }
@@ -115,7 +378,8 @@
         .wifi-manual-btn { background-color: #f97316; color: white; }
         .wifi-manual-btn:hover { background-color: #ea580c; }
         .wifi-password-group { margin-bottom: 15px; }
-        .wifi-password-group input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1em; box-sizing: border-box; }
+        .wifi-password-group input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1em; box-sizing: border-box; -webkit-user-select: text; user-select: text; }
+        .wifi-password-group input:focus, #manual-ssid-input input:focus { outline: 2px solid #3b82f6; border-color: #3b82f6; }
         .wifi-connect-btn { width: 100%; padding: 12px; background-color: #22c55e; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 1em; }
         .wifi-connect-btn:hover { background-color: #16a34a; }
         .wifi-connect-btn:disabled { background-color: #94a3b8; cursor: not-allowed; }
@@ -126,7 +390,45 @@
         .wifi-signal { font-size: 0.85em; color: #64748b; margin-left: 8px; }
         .wifi-security { font-size: 0.75em; color: #94a3b8; margin-left: 8px; }
         #manual-ssid-input { display: none; margin-bottom: 15px; }
-        #manual-ssid-input input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1em; box-sizing: border-box; }
+        #manual-ssid-input input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1em; box-sizing: border-box; -webkit-user-select: text; user-select: text; }
+
+        #onscreen-keyboard {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 2500;
+
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            max-height: 300px;
+            background-color: #2d3748;
+            padding: 10px 10px 40px 10px;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.3);
+        }
+
+        #onscreen-keyboard.visible {
+            display: flex;
+        }
+
+        .keyboard-row { display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; flex-wrap: wrap; }
+        .keyboard-row:first-child { margin-top: 5px; } /* Extra space for number row */
+        .keyboard-row:last-child { margin-bottom: 10px; } /* Extra space for bottom row */
+        .keyboard-key { min-width: 45px; height: 45px; padding: 8px; background-color: #4a5568; color: white; border: 1px solid #718096; border-radius: 6px; font-size: 1.1em; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; transition: background-color 0.1s; }
+        .keyboard-key:active { background-color: #2c5282; transform: scale(0.95); }
+        .keyboard-key.wide { min-width: 80px; }
+        .keyboard-key.extra-wide { min-width: 120px; }
+        .keyboard-key.space { flex: 1; }
+        .keyboard-key.special { background-color: #5a67d8; }
+        .keyboard-key.close { background-color: #e53e3e; }
+        .keyboard-key[data-action="enter"] { background-color: #22c55e; } /* Green for Enter */
+
+        /* Floating input container above keyboard */
+        #floating-input-container { display: none; position: fixed; bottom: 345px; left: 0; width: 100%; padding: 15px; background-color: #1e293b; box-shadow: 0 -2px 8px rgba(0,0,0,0.2); z-index: 2501; }
+        #floating-input-container.visible { display: block; }
+        #floating-input-container input { width: 100%; padding: 12px; border: 2px solid #3b82f6; border-radius: 8px; font-size: 1.1em; box-sizing: border-box; background-color: white; }
+        #floating-input-label { color: #cbd5e1; font-size: 0.9em; margin-bottom: 8px; font-weight: 500; }
     </style>
 </head>
 <body class="">
@@ -150,7 +452,7 @@
                     <div><h1 id="name-0">{{ birds[0].name }}</h1></div>
                     <div class="card-footer">
                         <div class="footer-text">
-                            <p id="time-0" class="time-display">{{ birds[0].time_display }}</p>
+                            <p id="time-0" class="time-display" {% if birds[0].time_display == "Offline" %}style="color: #dc2626;"{% endif %}>{{ birds[0].time_display }}</p>
                             <p id="copyright-0" class="copyright-display"></p>
                         </div>
                         <div class="footer-right">
@@ -170,7 +472,7 @@
                     <div><h2 id="name-1">{{ birds[1].name }}</h2></div>
                     <div class="card-footer">
                         <div class="footer-text">
-                            <p id="time-1" class="time-display">{{ birds[1].time_display }}</p>
+                            <p id="time-1" class="time-display" {% if birds[1].time_display == "Offline" %}style="color: #dc2626;"{% endif %}>{{ birds[1].time_display }}</p>
                             <p id="copyright-1" class="copyright-display"></p>
                         </div>
                         <div class="footer-right">
@@ -188,7 +490,7 @@
                     <div><h2 id="name-2">{{ birds[2].name }}</h2></div>
                     <div class="card-footer">
                         <div class="footer-text">
-                            <p id="time-2" class="time-display">{{ birds[2].time_display }}</p>
+                            <p id="time-2" class="time-display" {% if birds[2].time_display == "Offline" %}style="color: #dc2626;"{% endif %}>{{ birds[2].time_display }}</p>
                             <p id="copyright-2" class="copyright-display"></p>
                         </div>
                         <div class="footer-right">
@@ -206,7 +508,7 @@
                     <div><h2 id="name-3">{{ birds[3].name }}</h2></div>
                     <div class="card-footer">
                         <div class="footer-text">
-                            <p id="time-3" class="time-display">{{ birds[3].time_display }}</p>
+                            <p id="time-3" class="time-display" {% if birds[3].time_display == "Offline" %}style="color: #dc2626;"{% endif %}>{{ birds[3].time_display }}</p>
                             <p id="copyright-3" class="copyright-display"></p>
                         </div>
                         <div class="footer-right">
@@ -221,15 +523,71 @@
 
     <div id="qrModal" class="modal-overlay">
         <div class="modal-content">
-            <div id="mic-status-icon" title="Microphone Status">
-                <svg viewBox="0 0 24 24"><path d="M12,14c1.66,0,3-1.34,3-3V5c0-1.66-1.34-3-3-3S9,3.34,9,5v6C9,12.66,10.34,14,12,14z M17.3,11c0,3-2.54,5.1-5.3,5.1 S6.7,14,6.7,11H5c0,3.41,2.72,6.23,6,6.72V21h2v-3.28c3.28-0.49,6-3.31,6-6.72H17.3z"/></svg>
-            </div>
             <button id="settings-icon-btn" title="Open Settings">
                 <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.44,0.17-0.48,0.41L9.22,5.72C8.63,5.96,8.1,6.29,7.6,6.67L5.22,5.71C5,5.64,4.75,5.7,4.63,5.92L2.71,9.24 c-0.11,0.2-0.06,0.47,0.12,0.61l2.03,1.58C4.82,11.69,4.8,12,4.8,12.31c0,0.31,0.02,0.63,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.38,2.91 c0.04,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.48-0.41l0.38-2.91c0.59-0.24,1.12-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0.02,0.59-0.22l1.92-3.32c0.12-0.2,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
             </button>
-            <h2>More details</h2>
-            <img id="qrImage" src="" alt="Server Address QR Code">
-            <p id="qrUrlText"></p>
+            <div class="status-icons-container">
+                <div id="wifi-status-icon" title="WiFi Status">
+                    <!-- WiFi icon (always visible) -->
+                    <svg id="wifi-icon-connected" viewBox="0 0 24 24">
+                        <path id="wifi-icon-symbol" d="M1,9l2,2c4.97-4.97,13.03-4.97,18,0l2-2C16.93,2.93,7.08,2.93,1,9z M9,17l3,3l3-3c-1.65-1.66-4.34-1.66-6,0z M5,13l2,2c2.76-2.76,7.24-2.76,10,0l2-2C15.14,9.14,8.87,9.14,5,13z"/>
+                    </svg>
+                    <!-- Circle with slash overlay (shown when disconnected) -->
+                    <svg id="wifi-disconnected-overlay" viewBox="0 0 24 24" style="display: none;">
+                        <circle cx="12" cy="12" r="11" fill="none" stroke="#dc2626" stroke-width="2"/>
+                        <line x1="4" y1="4" x2="20" y2="20" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <!-- Signal bars (always visible) -->
+                    <svg id="wifi-signal-bars" viewBox="0 0 20 24">
+                        <rect class="wifi-signal-bar inactive bar-1" x="1" y="16" width="3.5" height="6" rx="1"/>
+                        <rect class="wifi-signal-bar inactive bar-2" x="5.5" y="12" width="3.5" height="10" rx="1"/>
+                        <rect class="wifi-signal-bar inactive bar-3" x="10" y="8" width="3.5" height="14" rx="1"/>
+                        <rect class="wifi-signal-bar inactive bar-4" x="14.5" y="4" width="3.5" height="18" rx="1"/>
+                    </svg>
+                </div>
+                <div id="mic-status-icon" title="Microphone Status">
+                    <!-- Mic icon (always visible) -->
+                    <svg id="mic-icon-connected" viewBox="0 0 24 24">
+                        <path id="mic-icon-symbol" d="M12,14c1.66,0,3-1.34,3-3V5c0-1.66-1.34-3-3-3S9,3.34,9,5v6C9,12.66,10.34,14,12,14z M17.3,11c0,3-2.54,5.1-5.3,5.1 S6.7,14,6.7,11H5c0,3.41,2.72,6.23,6,6.72V21h2v-3.28c3.28-0.49,6-3.31,6-6.72H17.3z"/>
+                    </svg>
+                    <!-- Circle with slash overlay (shown when disconnected) -->
+                    <svg id="mic-disconnected-overlay" viewBox="0 0 24 24" style="display: none;">
+                        <circle cx="12" cy="12" r="11" fill="none" stroke="#dc2626" stroke-width="2"/>
+                        <line x1="4" y1="4" x2="20" y2="20" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <!-- Signal bars (always visible) -->
+                    <svg id="mic-signal-bars" viewBox="0 0 20 24">
+                        <rect class="mic-signal-bar inactive bar-1" x="1" y="16" width="3.5" height="6" rx="1"/>
+                        <rect class="mic-signal-bar inactive bar-2" x="5.5" y="12" width="3.5" height="10" rx="1"/>
+                        <rect class="mic-signal-bar inactive bar-3" x="10" y="8" width="3.5" height="14" rx="1"/>
+                        <rect class="mic-signal-bar inactive bar-4" x="14.5" y="4" width="3.5" height="18" rx="1"/>
+                    </svg>
+                </div>
+            </div>
+            <h2 id="qrModalTitle">More details</h2>
+            <div id="qr-normal-mode">
+                <img id="qrImage" src="" alt="Server Address QR Code">
+                <p id="qrUrlText"></p>
+            </div>
+            <div id="qr-ap-mode" style="display: none;">
+                <p style="font-size: 1.2em; margin-bottom: 20px; color: #333;">Connect to Access Point</p>
+                <button id="setup-wifi-btn" style="background-color: #3b82f6; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1.1em; cursor: pointer; font-weight: 600; width: 100%; margin-bottom: 20px;">Setup WiFi Connection</button>
+                <div style="text-align: left; background-color: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #64748b; display: block; margin-bottom: 5px;">WiFi Network:</strong>
+                        <span id="apSsid" style="font-size: 1.3em; color: #1e293b; font-family: monospace;"></span>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <strong style="color: #64748b; display: block; margin-bottom: 5px;">Password:</strong>
+                        <span id="apPassword" style="font-size: 1.3em; color: #1e293b; font-family: monospace;"></span>
+                    </div>
+                    <div>
+                        <strong style="color: #64748b; display: block; margin-bottom: 5px;">Web Address:</strong>
+                        <span id="apUrl" style="font-size: 1.2em; color: #3b82f6; font-family: monospace;"></span>
+                    </div>
+                </div>
+                <p style="font-size: 0.9em; color: #64748b;">1. Connect your device to the WiFi network above<br>2. Open a browser and go to the web address</p>
+            </div>
         </div>
     </div>
     
@@ -250,11 +608,9 @@
                 <input type="range" id="brightness-slider" min="15" max="255" value="255">
             </div>
             <div class="settings-group">
-                <label>WiFi</label>
                 <button id="wifi-settings-btn-modal" class="settings-btn" style="width: 100%;">Open WiFi Settings</button>
             </div>
             <div class="settings-group">
-                <label>Pinned Species</label>
                 <button id="pinned-settings-btn-modal" class="settings-btn" style="width: 100%;">Manage Pinned Species</button>
             </div>
             <div class="system-buttons">
@@ -291,10 +647,10 @@
                     <button id="wifi-manual-btn" class="wifi-btn wifi-manual-btn">Manual</button>
                 </div>
                 <div id="manual-ssid-input">
-                    <input type="text" id="manual-ssid" placeholder="Enter SSID manually">
+                    <input type="text" id="manual-ssid" placeholder="Enter SSID manually" autocomplete="off" inputmode="text">
                 </div>
                 <div class="wifi-password-group">
-                    <input type="password" id="wifi-password" placeholder="Password (leave empty for open networks)">
+                    <input type="text" id="wifi-password" placeholder="Password (leave empty for open networks)" autocomplete="off" inputmode="text">
                 </div>
                 <button id="wifi-connect-btn" class="wifi-connect-btn">Connect</button>
             </div>
@@ -310,10 +666,344 @@
             </div>
         </div>
     </div>
-    
+
+    <div id="floating-input-container">
+        <div id="floating-input-label"></div>
+        <input type="text" id="floating-input" autocomplete="off">
+    </div>
+
+    <div id="onscreen-keyboard">
+        <div class="keyboard-row">
+            <div class="keyboard-key" data-key="1">1</div>
+            <div class="keyboard-key" data-key="2">2</div>
+            <div class="keyboard-key" data-key="3">3</div>
+            <div class="keyboard-key" data-key="4">4</div>
+            <div class="keyboard-key" data-key="5">5</div>
+            <div class="keyboard-key" data-key="6">6</div>
+            <div class="keyboard-key" data-key="7">7</div>
+            <div class="keyboard-key" data-key="8">8</div>
+            <div class="keyboard-key" data-key="9">9</div>
+            <div class="keyboard-key" data-key="0">0</div>
+        </div>
+        <div class="keyboard-row">
+            <div class="keyboard-key" data-key="q">q</div>
+            <div class="keyboard-key" data-key="w">w</div>
+            <div class="keyboard-key" data-key="e">e</div>
+            <div class="keyboard-key" data-key="r">r</div>
+            <div class="keyboard-key" data-key="t">t</div>
+            <div class="keyboard-key" data-key="y">y</div>
+            <div class="keyboard-key" data-key="u">u</div>
+            <div class="keyboard-key" data-key="i">i</div>
+            <div class="keyboard-key" data-key="o">o</div>
+            <div class="keyboard-key" data-key="p">p</div>
+        </div>
+        <div class="keyboard-row">
+            <div class="keyboard-key" data-key="a">a</div>
+            <div class="keyboard-key" data-key="s">s</div>
+            <div class="keyboard-key" data-key="d">d</div>
+            <div class="keyboard-key" data-key="f">f</div>
+            <div class="keyboard-key" data-key="g">g</div>
+            <div class="keyboard-key" data-key="h">h</div>
+            <div class="keyboard-key" data-key="j">j</div>
+            <div class="keyboard-key" data-key="k">k</div>
+            <div class="keyboard-key" data-key="l">l</div>
+        </div>
+        <div class="keyboard-row">
+            <div class="keyboard-key special wide" data-action="shift">Shift</div>
+            <div class="keyboard-key" data-key="z">z</div>
+            <div class="keyboard-key" data-key="x">x</div>
+            <div class="keyboard-key" data-key="c">c</div>
+            <div class="keyboard-key" data-key="v">v</div>
+            <div class="keyboard-key" data-key="b">b</div>
+            <div class="keyboard-key" data-key="n">n</div>
+            <div class="keyboard-key" data-key="m">m</div>
+            <div class="keyboard-key special wide" data-action="backspace">⌫</div>
+        </div>
+        <div class="keyboard-row">
+            <div class="keyboard-key special wide" data-action="symbols">!@#</div>
+            <div class="keyboard-key space" data-key=" ">Space</div>
+            <div class="keyboard-key" data-key="-">-</div>
+            <div class="keyboard-key" data-key="_">_</div>
+            <div class="keyboard-key special wide" data-action="enter">Enter</div>
+            <div class="keyboard-key close wide" data-action="close">Close</div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // --- LAYOUT LOGIC ---
+            // ========================================
+            // VIEWPORT HEIGHT MANAGEMENT
+            // ========================================
+            function setViewportHeight() {
+                const vh = window.innerHeight * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+            }
+
+            setViewportHeight();
+            window.addEventListener('resize', setViewportHeight);
+
+            // ========================================
+            // ON-SCREEN KEYBOARD
+            // ========================================
+            const keyboard = document.getElementById('onscreen-keyboard');
+            const floatingInputContainer = document.getElementById('floating-input-container');
+            const floatingInput = document.getElementById('floating-input');
+            const floatingInputLabel = document.getElementById('floating-input-label');
+            let activeInput = null;
+            let isShiftActive = false;
+            let isSymbolsMode = false;
+
+            const symbolsLayout = [
+                ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')'],
+                ['[', ']', '{', '}', '|', '\\', '/', '<', '>', '?'],
+                ['+', '=', '~', '`', ';', ':', '"', "'", ',', '.']
+            ];
+
+            const lettersLayout = [
+                ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+                ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+                ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l']
+            ];
+
+            function showKeyboard(inputElement) {
+                activeInput = inputElement;
+
+                // Copy value to floating input
+                floatingInput.value = activeInput.value;
+
+                // Set label based on input
+                if (activeInput.id === 'wifi-password') {
+                    floatingInputLabel.textContent = 'WiFi Password';
+                } else if (activeInput.id === 'manual-ssid') {
+                    floatingInputLabel.textContent = 'Network Name (SSID)';
+                } else {
+                    floatingInputLabel.textContent = 'Enter text';
+                }
+
+                // Show keyboard and floating input
+                keyboard.classList.add('visible');
+                floatingInputContainer.classList.add('visible');
+                document.body.classList.add('keyboard-active');
+
+                // Focus the floating input
+                setTimeout(() => {
+                    floatingInput.focus();
+                }, 100);
+            }
+
+            function hideKeyboard() {
+                // Copy value back to original input
+                if (activeInput) {
+                    activeInput.value = floatingInput.value;
+                }
+
+                keyboard.classList.remove('visible');
+                floatingInputContainer.classList.remove('visible');
+                document.body.classList.remove('keyboard-active');
+                activeInput = null;
+                if (isSymbolsMode) toggleSymbols(); // Reset to normal layout
+                if (isShiftActive) toggleShift(); // Reset shift
+            }
+
+            function insertText(text) {
+                if (!activeInput) return;
+                const start = floatingInput.selectionStart;
+                const end = floatingInput.selectionEnd;
+                const currentValue = floatingInput.value;
+                floatingInput.value = currentValue.substring(0, start) + text + currentValue.substring(end);
+                floatingInput.selectionStart = floatingInput.selectionEnd = start + text.length;
+                floatingInput.focus();
+
+                // Sync to original input
+                activeInput.value = floatingInput.value;
+            }
+
+            function backspace() {
+                if (!activeInput) return;
+                const start = floatingInput.selectionStart;
+                const end = floatingInput.selectionEnd;
+                const currentValue = floatingInput.value;
+                if (start !== end) {
+                    floatingInput.value = currentValue.substring(0, start) + currentValue.substring(end);
+                    floatingInput.selectionStart = floatingInput.selectionEnd = start;
+                } else if (start > 0) {
+                    floatingInput.value = currentValue.substring(0, start - 1) + currentValue.substring(end);
+                    floatingInput.selectionStart = floatingInput.selectionEnd = start - 1;
+                }
+                floatingInput.focus();
+
+                // Sync to original input
+                activeInput.value = floatingInput.value;
+            }
+
+            // Map of number keys to their shifted symbols
+            const shiftMap = {
+                '1': '!', '2': '@', '3': '#', '4': '$', '5': '%',
+                '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
+                '!': '1', '@': '2', '#': '3', '$': '4', '%': '5',
+                '^': '6', '&': '7', '*': '8', '(': '9', ')': '0'
+            };
+
+            function toggleShift() {
+                isShiftActive = !isShiftActive;
+                const letterKeys = keyboard.querySelectorAll('.keyboard-key[data-key]');
+                letterKeys.forEach(key => {
+                    const char = key.getAttribute('data-key');
+                    if (char && char.length === 1) {
+                        let newChar = char;
+                        // Handle letters
+                        if (char.match(/[a-z]/i)) {
+                            newChar = isShiftActive ? char.toUpperCase() : char.toLowerCase();
+                        }
+                        // Handle numbers and their shifted symbols
+                        else if (shiftMap[char]) {
+                            newChar = isShiftActive ? shiftMap[char] : (char.match(/[0-9]/) ? char : shiftMap[char]);
+                        }
+                        key.setAttribute('data-key', newChar);
+                        key.textContent = newChar;
+                    }
+                });
+                const shiftBtn = keyboard.querySelector('[data-action="shift"]');
+                if (shiftBtn) {
+                    shiftBtn.style.backgroundColor = isShiftActive ? '#4299e1' : '#5a67d8';
+                }
+            }
+
+            function toggleSymbols() {
+                isSymbolsMode = !isSymbolsMode;
+                const rows = keyboard.querySelectorAll('.keyboard-row');
+
+                if (isSymbolsMode) {
+                    // Replace first 3 rows with symbols
+                    symbolsLayout.forEach((symbols, rowIndex) => {
+                        const row = rows[rowIndex];
+                        row.innerHTML = '';
+                        symbols.forEach(symbol => {
+                            const key = document.createElement('div');
+                            key.className = 'keyboard-key';
+                            key.setAttribute('data-key', symbol);
+                            key.textContent = symbol;
+                            row.appendChild(key);
+                        });
+                    });
+                    const symbolsBtn = keyboard.querySelector('[data-action="symbols"]');
+                    if (symbolsBtn) {
+                        symbolsBtn.textContent = 'ABC';
+                        symbolsBtn.style.backgroundColor = '#4299e1';
+                    }
+                } else {
+                    // Restore letters layout
+                    lettersLayout.forEach((letters, rowIndex) => {
+                        const row = rows[rowIndex];
+                        row.innerHTML = '';
+                        letters.forEach(letter => {
+                            const key = document.createElement('div');
+                            key.className = 'keyboard-key';
+                            const displayLetter = isShiftActive ? letter.toUpperCase() : letter;
+                            key.setAttribute('data-key', displayLetter);
+                            key.textContent = displayLetter;
+                            row.appendChild(key);
+                        });
+                    });
+                    const symbolsBtn = keyboard.querySelector('[data-action="symbols"]');
+                    if (symbolsBtn) {
+                        symbolsBtn.textContent = '!@#';
+                        symbolsBtn.style.backgroundColor = '#5a67d8';
+                    }
+                }
+            }
+
+            function handleEnter() {
+                if (!activeInput) return;
+
+                // Determine what to do based on current input
+                if (activeInput.id === 'manual-ssid') {
+                    // Move to password field
+                    hideKeyboard();
+                    setTimeout(() => {
+                        wifiPassword.focus();
+                        wifiPassword.click();
+                    }, 100);
+                } else if (activeInput.id === 'wifi-password') {
+                    // Submit WiFi connection
+                    hideKeyboard();
+                    const connectBtn = document.getElementById('wifi-connect-btn');
+                    if (connectBtn) {
+                        connectBtn.click();
+                    }
+                }
+            }
+
+            // Attach click handlers to all keyboard keys
+            keyboard.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const key = e.target.closest('.keyboard-key');
+                if (!key) return;
+
+                const action = key.getAttribute('data-action');
+                const keyValue = key.getAttribute('data-key');
+
+                if (action === 'close') {
+                    hideKeyboard();
+                } else if (action === 'backspace') {
+                    backspace();
+                } else if (action === 'shift') {
+                    toggleShift();
+                } else if (action === 'symbols') {
+                    toggleSymbols();
+                } else if (action === 'enter') {
+                    handleEnter();
+                } else if (keyValue) {
+                    insertText(keyValue);
+                    if (isShiftActive) toggleShift(); // Auto-disable shift after typing
+                }
+            });
+
+            // Sync floating input changes back to original input
+            floatingInput.addEventListener('input', () => {
+                if (activeInput) {
+                    activeInput.value = floatingInput.value;
+                }
+            });
+
+            // Prevent floating input clicks from propagating
+            floatingInput.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+            floatingInput.addEventListener('touchend', (e) => {
+                e.stopPropagation();
+            });
+
+            // Handle Enter key on floating input
+            floatingInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleEnter();
+                }
+            });
+
+            // Show keyboard when password or manual SSID inputs are focused
+            const wifiPassword = document.getElementById('wifi-password');
+            const manualSsid = document.getElementById('manual-ssid');
+
+            [wifiPassword, manualSsid].forEach(input => {
+                if (input) {
+                    input.addEventListener('focus', () => showKeyboard(input));
+                    input.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showKeyboard(input);
+                    });
+                    input.addEventListener('touchend', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        showKeyboard(input);
+                    });
+                }
+            });
+
+            // ========================================
+            // LAYOUT LOGIC
+            // ========================================
             const savedLayout = localStorage.getItem('birdLayout') || '3';
             
             function applyLayout(layout) {
@@ -331,55 +1021,195 @@
                 });
             });
             applyLayout(savedLayout);
-            
-            // --- MODALS AND SETTINGS ---
+
+
+            // ========================================
+            // MODALS AND SETTINGS
+            // ========================================
             const qrModal = document.getElementById('qrModal');
             const settingsModal = document.getElementById('settingsModal');
             const pinnedModal = document.getElementById('pinnedModal');
             const wifiModal = document.getElementById('wifiModal');
             const confirmModal = document.getElementById('confirmModal');
+
+            // QR Modal - special handling for keyboard
+            qrModal.addEventListener('click', e => {
+                // Don't close if clicking on keyboard or input
+                if (e.target.closest('#onscreen-keyboard')) return;
+                if (e.target.closest('#floating-input-container')) return;
+                // Close if clicking on overlay (outside modal content)
+                if (!e.target.closest('.modal-content')) hideQrModal();
+            });
+
+            // Settings Modal
+            settingsModal.addEventListener('click', e => {
+                // Don't close if clicking on keyboard or input
+                if (e.target.closest('#onscreen-keyboard')) return;
+                if (e.target.closest('#floating-input-container')) return;
+                // Close if clicking on overlay (outside modal content)
+                if (!e.target.closest('.modal-content')) hideSettingsModal();
+            });
+
+            // WiFi Modal
+            wifiModal.addEventListener('click', e => {
+                // Don't close if clicking on keyboard or input
+                if (e.target.closest('#onscreen-keyboard')) return;
+                if (e.target.closest('#floating-input-container')) return;
+                // Close if clicking on overlay (outside modal content)
+                if (!e.target.closest('.modal-content')) hideWifiModal();
+            });
+
+            // Pinned Modal
+            pinnedModal.addEventListener('click', e => {
+                // Close if clicking on overlay (outside modal content)
+                if (!e.target.closest('.modal-content')) hidePinnedModal();
+            });
+
+            // Confirm Modal
+            confirmModal.addEventListener('click', e => {
+                // Close if clicking on overlay (outside modal content)
+                if (!e.target.closest('.modal-content')) {
+                    confirmModal.style.display = 'none';
+                    confirmAction = null;
+                }
+            });
+
+            // ESC key to close modals
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape') {
+                    // Close keyboard first if visible
+                    if (keyboard.classList.contains('visible')) {
+                        hideKeyboard();
+                        return;
+                    }
+                    // Close whichever modal is open
+                    if (qrModal.style.display === 'flex') hideQrModal();
+                    else if (settingsModal.style.display === 'flex') hideSettingsModal();
+                    else if (wifiModal.style.display === 'flex') hideWifiModal();
+                    else if (pinnedModal.style.display === 'flex') hidePinnedModal();
+                    else if (confirmModal.style.display === 'flex') {
+                        confirmModal.style.display = 'none';
+                        confirmAction = null;
+                    }
+                }
+            });
+
+
             let confirmAction = null;
             const qrImage = document.getElementById('qrImage');
             const qrUrlText = document.getElementById('qrUrlText');
+            const qrNormalMode = document.getElementById('qr-normal-mode');
+            const qrApMode = document.getElementById('qr-ap-mode');
+            const qrModalTitle = document.getElementById('qrModalTitle');
+            const apSsid = document.getElementById('apSsid');
+            const apPassword = document.getElementById('apPassword');
+            const apUrl = document.getElementById('apUrl');
             let timeoutId;
             qrImage.src = '/qr_code.png';
             const serverUrl = {{ server_url | tojson | default('"http://localhost:5000"', true) }};
             qrUrlText.textContent = serverUrl;
 
+            async function updateConnectionInfo() {
+                try {
+                    const response = await fetch('/api/connection_info');
+                    const data = await response.json();
+
+                    if (data.mode === 'ap') {
+                        // AP mode - show connection instructions
+                        qrNormalMode.style.display = 'none';
+                        qrApMode.style.display = 'block';
+                        qrModalTitle.textContent = 'Connection Instructions';
+                        apSsid.textContent = data.ssid;
+                        apPassword.textContent = data.password;
+                        apUrl.textContent = data.url;
+                    } else {
+                        // Normal mode - show QR code
+                        qrNormalMode.style.display = 'block';
+                        qrApMode.style.display = 'none';
+                        qrModalTitle.textContent = 'More details';
+                        qrUrlText.textContent = data.url;
+                    }
+                } catch (error) {
+                    console.error('Error fetching connection info:', error);
+                    // Default to normal mode on error
+                    qrNormalMode.style.display = 'block';
+                    qrApMode.style.display = 'none';
+                }
+            }
+
             function hideQrModal() { qrModal.style.display = 'none'; if (timeoutId) { clearTimeout(timeoutId); } }
-            function showQrModal() { qrModal.style.display = 'flex'; timeoutId = setTimeout(hideQrModal, 30000); }
+            async function showQrModal(e) {
+                // Only prevent default on touch events to avoid double-firing
+                if (e && e.type === 'touchend') {
+                    e.preventDefault();
+                }
+
+                // Show modal immediately, update info after
+                qrModal.style.display = 'flex';
+                timeoutId = setTimeout(hideQrModal, 30000);
+
+                // Update connection info asynchronously
+                try {
+                    await updateConnectionInfo();
+                } catch (error) {
+                    console.error('Error updating connection info:', error);
+                }
+            }
+
             const mainLayoutEl = document.querySelector('.main-layout');
             if (mainLayoutEl) {
                 mainLayoutEl.addEventListener('click', showQrModal);
+                mainLayoutEl.addEventListener('touchend', showQrModal);
             }
-            qrModal.addEventListener('click', e => { if (e.target === qrModal) hideQrModal(); });
 
             function hideSettingsModal() { settingsModal.style.display = 'none'; }
             async function showSettingsModal(e) {
                 e.stopPropagation(); // Prevent QR modal from opening
+                e.preventDefault(); // Prevent default touch behavior
                 settingsModal.style.display = 'flex';
             }
-            document.getElementById('settings-icon-btn').addEventListener('click', showSettingsModal);
-            settingsModal.addEventListener('click', e => { if (e.target === settingsModal) hideSettingsModal(); });
+            const settingsBtn = document.getElementById('settings-icon-btn');
+            settingsBtn.addEventListener('click', showSettingsModal);
+            settingsBtn.addEventListener('touchend', showSettingsModal);
+        
             const wifiButtons = Array.from(document.querySelectorAll('#wifi-settings-btn, #wifi-settings-btn-modal'));
             function hideWifiModal() { wifiModal.style.display = 'none'; }
             async function showWifiModal(e) {
                 e.stopPropagation();
+                e.preventDefault();
                 await loadCurrentNetwork();
                 wifiModal.style.display = 'flex';
+                // Automatically scan for networks when opening WiFi settings
+                setTimeout(() => {
+                    scanWifiNetworks();
+                }, 300);
             }
-            wifiButtons.forEach(btn => btn.addEventListener('click', showWifiModal));
-            wifiModal.addEventListener('click', e => { if (e.target === wifiModal) hideWifiModal(); });
+            wifiButtons.forEach(btn => {
+                btn.addEventListener('click', showWifiModal);
+                btn.addEventListener('touchend', showWifiModal);
+            });
+
+            // Setup WiFi button in AP mode
+            const setupWifiBtn = document.getElementById('setup-wifi-btn');
+            if (setupWifiBtn) {
+                setupWifiBtn.addEventListener('click', async (e) => {
+                    hideQrModal();
+                    await showWifiModal(e);
+                });
+            }
 
             const pinnedButtons = Array.from(document.querySelectorAll('#pinned-settings-btn-modal'));
             function hidePinnedModal() { pinnedModal.style.display = 'none'; }
             async function showPinnedModal(e) {
                 e.stopPropagation();
+                e.preventDefault();
                 await loadPinnedSpecies();
                 pinnedModal.style.display = 'flex';
             }
-            pinnedButtons.forEach(btn => btn.addEventListener('click', showPinnedModal));
-            pinnedModal.addEventListener('click', e => { if (e.target === pinnedModal) hidePinnedModal(); });
+            pinnedButtons.forEach(btn => {
+                btn.addEventListener('click', showPinnedModal);
+                btn.addEventListener('touchend', showPinnedModal);
+            });
 
             function showConfirmModal(message, action) {
                 document.getElementById('confirmMessage').textContent = message;
@@ -392,6 +1222,9 @@
                 confirmModal.style.display = 'none'; confirmAction = null;
             });
 
+            // ========================================
+            // BRIGHTNESS & SYSTEM CONTROLS
+            // ========================================
             document.getElementById('brightness-slider').addEventListener('input', e => {
                 fetch('/brightness', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -412,28 +1245,106 @@
                     document.body.innerHTML = '<div class="status-card"><h1>System is shutting down...</h1></div>';
                 });
             });
-            
+
+            // ========================================
+            // STATUS ICONS (MICROPHONE & WIFI)
+            // ========================================
             const micIcon = document.getElementById('mic-status-icon');
+            const micIconConnected = document.getElementById('mic-icon-connected');
+            const micSignalBars = document.getElementById('mic-signal-bars');
+            const micDisconnectedOverlay = document.getElementById('mic-disconnected-overlay');
+
+            function getSignalStrength(rssi) {
+                // RSSI typically ranges from -90 (weak) to -30 (excellent)
+                // Return number of bars (1-4) and strength class
+                if (rssi >= -50) {
+                    return { bars: 4, class: 'signal-excellent' }; // Excellent
+                } else if (rssi >= -60) {
+                    return { bars: 3, class: 'signal-good' }; // Good
+                } else if (rssi >= -70) {
+                    return { bars: 2, class: 'signal-fair' }; // Fair
+                } else {
+                    return { bars: 1, class: 'signal-weak' }; // Weak
+                }
+            }
+
+            function updateMicSignalBars(rssi) {
+                const signal = getSignalStrength(rssi);
+                const bars = micSignalBars.querySelectorAll('.mic-signal-bar');
+
+                // Remove all signal classes
+                micIcon.classList.remove('signal-excellent', 'signal-good', 'signal-fair', 'signal-weak');
+                // Add current signal class
+                micIcon.classList.add(signal.class);
+
+                // Update bars visibility
+                bars.forEach((bar, index) => {
+                    if (index < signal.bars) {
+                        bar.classList.remove('inactive');
+                    } else {
+                        bar.classList.add('inactive');
+                    }
+                });
+            }
+
             async function checkAudioStatus() {
                 try {
                     const response = await fetch('/audio_status');
                     const data = await response.json();
                     if (data.connected) {
-                        micIcon.classList.add('connected');
+                        // Connected - color icon and bars based on signal
                         micIcon.classList.remove('disconnected');
-                        micIcon.title = "Microphone Connected";
+                        micIcon.classList.add('connected');
+
+                        // Hide disconnected overlay
+                        if (micDisconnectedOverlay) {
+                            micDisconnectedOverlay.style.display = 'none';
+                        }
+
+                        // Update signal bars based on RSSI
+                        updateMicSignalBars(data.rssi);
+
+                        const signal = getSignalStrength(data.rssi);
+                        micIcon.title = `Microphone Connected (Signal: ${signal.bars}/4, ${data.rssi} dBm)`;
                     } else {
-                        micIcon.classList.add('disconnected');
+                        // Disconnected - make icon and all bars gray, show overlay
                         micIcon.classList.remove('connected');
+                        micIcon.classList.add('disconnected');
+                        micIcon.classList.remove('signal-excellent', 'signal-good', 'signal-fair', 'signal-weak');
+
+                        // Show disconnected overlay
+                        if (micDisconnectedOverlay) {
+                            micDisconnectedOverlay.style.display = 'block';
+                        }
+
+                        // Make all bars inactive (gray)
+                        const bars = micSignalBars.querySelectorAll('.mic-signal-bar');
+                        bars.forEach(bar => bar.classList.add('inactive'));
+
                         micIcon.title = "Microphone Disconnected";
                     }
                 } catch (error) {
-                    micIcon.classList.add('disconnected');
+                    // Error - show disconnected state
                     micIcon.classList.remove('connected');
+                    micIcon.classList.add('disconnected');
+                    micIcon.classList.remove('signal-excellent', 'signal-good', 'signal-fair', 'signal-weak');
+
+                    // Show disconnected overlay
+                    if (micDisconnectedOverlay) {
+                        micDisconnectedOverlay.style.display = 'block';
+                    }
+
+                    // Make all bars inactive (gray)
+                    const bars = micSignalBars.querySelectorAll('.mic-signal-bar');
+                    bars.forEach(bar => bar.classList.add('inactive'));
+
                     micIcon.title = "Microphone Status Unknown";
                 }
             }
 
+            // ========================================
+            // PINNED SPECIES MANAGEMENT
+            // ========================================
             async function loadPinnedSpecies() {
                 try {
                     const response = await fetch('/api/pinned_species');
@@ -497,15 +1408,16 @@
                 }
             });
 
-            // --- WIFI MANAGEMENT ---
+            // ========================================
+            // WIFI MANAGEMENT
+            // ========================================
             const wifiSelect = document.getElementById('wifi-network-select');
             const wifiScanBtn = document.getElementById('wifi-scan-btn');
             const wifiManualBtn = document.getElementById('wifi-manual-btn');
             const wifiConnectBtn = document.getElementById('wifi-connect-btn');
-            const wifiPassword = document.getElementById('wifi-password');
+            // wifiPassword and manualSsid already declared above for keyboard
             const wifiStatus = document.getElementById('wifi-status');
             const manualSsidInput = document.getElementById('manual-ssid-input');
-            const manualSsid = document.getElementById('manual-ssid');
             const currentSsidDisplay = document.getElementById('current-ssid-display');
             const wifiCurrentNetwork = document.getElementById('wifi-current-network');
 
@@ -632,8 +1544,13 @@
                 await loadCurrentNetwork();
             };
 
-            // --- DYNAMIC DATA REFRESH LOGIC ---
+            // ========================================
+            // DYNAMIC DATA REFRESH & STATUS INDICATORS
+            // ========================================
             const refreshIntervalMs = {{ refresh_interval * 1000 }};
+
+            // Store timestamps for each bird to track elapsed time
+            const birdTimestamps = [null, null, null, null];
 
             function cleanCopyright(text) {
                 if (!text) return "";
@@ -642,6 +1559,56 @@
                     .filter(line => line && !line.startsWith("URL:"))
                     .map(line => line.startsWith("Attribution:") ? line.replace(/^Attribution:\s*/i, "") : line);
                 return cleaned.join(" ").trim();
+            }
+
+            function formatElapsedTime(seconds) {
+                // Show max 2 levels: min/sec or hour/min
+                if (seconds < 60) {
+                    return `${Math.floor(seconds)}s ago`;
+                }
+                const totalMinutes = Math.floor(seconds / 60);
+                const remainingSeconds = Math.floor(seconds % 60);
+
+                if (totalMinutes < 60) {
+                    // Show minutes and seconds
+                    if (remainingSeconds === 0) {
+                        return `${totalMinutes}m ago`;
+                    }
+                    return `${totalMinutes}m ${remainingSeconds}s ago`;
+                }
+
+                const hours = Math.floor(totalMinutes / 60);
+                const remainingMinutes = totalMinutes % 60;
+
+                if (hours < 24) {
+                    // Show hours and minutes
+                    if (remainingMinutes === 0) {
+                        return `${hours}h ago`;
+                    }
+                    return `${hours}h ${remainingMinutes}m ago`;
+                }
+
+                const days = Math.floor(hours / 24);
+                const remainingHours = hours % 24;
+
+                // Show days and hours
+                if (remainingHours === 0) {
+                    return `${days}d ago`;
+                }
+                return `${days}d ${remainingHours}h ago`;
+            }
+
+            function updateDisplayedTimes() {
+                const now = Date.now();
+                for (let i = 0; i < 4; i++) {
+                    if (birdTimestamps[i] !== null) {
+                        const elapsedSeconds = Math.floor((now - birdTimestamps[i]) / 1000);
+                        const timeElement = document.getElementById(`time-${i}`);
+                        if (timeElement && timeElement.textContent !== "Offline") {
+                            timeElement.textContent = formatElapsedTime(elapsedSeconds);
+                        }
+                    }
+                }
             }
 
             function updateConfidenceCircle(index, confidence) {
@@ -667,6 +1634,7 @@
                 if (!card) return;
                 if (!bird) {
                     card.style.display = 'none';
+                    birdTimestamps[index] = null;
                     return;
                 }
                 card.style.display = '';
@@ -688,7 +1656,38 @@
                     tempImg.src = bird.image_url;
                 }
                 document.getElementById(`name-${index}`).textContent = bird.name;
-                document.getElementById(`time-${index}`).textContent = bird.time_display;
+                const timeElement = document.getElementById(`time-${index}`);
+
+                // Parse the time_display to set the initial timestamp
+                if (bird.time_display !== "Offline") {
+                    // Check if we need to update the timestamp (bird name changed or initial load)
+                    const nameChanged = document.getElementById(`name-${index}`).dataset.birdName !== bird.name;
+                    if (nameChanged || birdTimestamps[index] === null) {
+                        // Parse the time_display to calculate the timestamp
+                        // Format from server: "5s ago", "10m ago", "2h ago", "1d ago"
+                        const now = Date.now();
+                        let offsetSeconds = 0;
+
+                        const match = bird.time_display.match(/(\d+)\s*([smhd])\s*ago/i);
+                        if (match) {
+                            const value = parseInt(match[1]);
+                            const unit = match[2].toLowerCase();
+                            if (unit === 's') offsetSeconds = value;
+                            else if (unit === 'm') offsetSeconds = value * 60;
+                            else if (unit === 'h') offsetSeconds = value * 3600;
+                            else if (unit === 'd') offsetSeconds = value * 86400;
+                        }
+
+                        birdTimestamps[index] = now - (offsetSeconds * 1000);
+                        document.getElementById(`name-${index}`).dataset.birdName = bird.name;
+                    }
+                    timeElement.textContent = bird.time_display;
+                    timeElement.style.color = "";
+                } else {
+                    birdTimestamps[index] = null;
+                    timeElement.textContent = "Offline";
+                    timeElement.style.color = "#dc2626";
+                }
                 const copyrightElem = document.getElementById(`copyright-${index}`);
                 const cleanCopy = cleanCopyright(bird.copyright);
                 if (cleanCopy) {
@@ -759,12 +1758,139 @@
                     } else {
                         copyrightElem{{ i }}.style.display = "none";
                     }
+
+                    // Initialize timestamp for this bird
+                    {% if not birds[i].get('is_offline') %}
+                        const timeDisplay{{ i }} = {{ birds[i].time_display | tojson | default('""', true) }};
+                        if (timeDisplay{{ i }} !== "Offline") {
+                            const now = Date.now();
+                            let offsetSeconds = 0;
+                            // Format from server: "5s ago", "10m ago", "2h ago", "1d ago"
+                            const match = timeDisplay{{ i }}.match(/(\d+)\s*([smhd])\s*ago/i);
+                            if (match) {
+                                const value = parseInt(match[1]);
+                                const unit = match[2].toLowerCase();
+                                if (unit === 's') offsetSeconds = value;
+                                else if (unit === 'm') offsetSeconds = value * 60;
+                                else if (unit === 'h') offsetSeconds = value * 3600;
+                                else if (unit === 'd') offsetSeconds = value * 86400;
+                            }
+                            birdTimestamps[{{ i }}] = now - (offsetSeconds * 1000);
+                            document.getElementById('name-{{ i }}').dataset.birdName = {{ birds[i].name | tojson }};
+                        }
+                    {% endif %}
                 {% endif %}
             {% endfor %}
             
+            const wifiIcon = document.getElementById('wifi-status-icon');
+            const wifiSignalBars = document.getElementById('wifi-signal-bars');
+            const wifiDisconnectedOverlay = document.getElementById('wifi-disconnected-overlay');
+
+            if (!wifiIcon || !wifiSignalBars) {
+                console.error('WiFi status elements not found');
+            }
+
+            function getWifiSignalStrength(signal) {
+                // Signal is percentage (0-100)
+                if (signal >= 75) {
+                    return { bars: 4, class: 'wifi-excellent' }; // Excellent
+                } else if (signal >= 50) {
+                    return { bars: 3, class: 'wifi-good' }; // Good
+                } else if (signal >= 25) {
+                    return { bars: 2, class: 'wifi-fair' }; // Fair
+                } else {
+                    return { bars: 1, class: 'wifi-weak' }; // Weak
+                }
+            }
+
+            function updateWifiBars(signal) {
+                if (!wifiIcon || !wifiSignalBars) return;
+
+                const strength = getWifiSignalStrength(signal);
+                const bars = wifiSignalBars.querySelectorAll('.wifi-signal-bar');
+
+                // Remove all signal classes
+                wifiIcon.classList.remove('wifi-excellent', 'wifi-good', 'wifi-fair', 'wifi-weak');
+                // Add current signal class
+                wifiIcon.classList.add(strength.class);
+
+                // Update bars visibility
+                bars.forEach((bar, index) => {
+                    if (index < strength.bars) {
+                        bar.classList.remove('inactive');
+                    } else {
+                        bar.classList.add('inactive');
+                    }
+                });
+            }
+
+            async function checkWifiStatus() {
+                if (!wifiIcon || !wifiSignalBars) return;
+
+                try {
+                    const response = await fetch('/api/wifi/signal');
+                    // Always try to parse JSON, even on error responses
+                    const data = await response.json();
+
+                    if (response.ok && data.status === 'success' && data.signal > 0) {
+                        // Connected - color icon and bars based on signal
+                        wifiIcon.classList.remove('disconnected');
+                        wifiIcon.classList.add('connected');
+
+                        // Hide disconnected overlay
+                        if (wifiDisconnectedOverlay) {
+                            wifiDisconnectedOverlay.style.display = 'none';
+                        }
+
+                        updateWifiBars(data.signal);
+                        const strength = getWifiSignalStrength(data.signal);
+                        wifiIcon.title = `WiFi Signal: ${strength.bars}/4 (${data.signal}%)`;
+                    } else {
+                        // Disconnected - make icon and all bars gray, show overlay
+                        wifiIcon.classList.remove('connected');
+                        wifiIcon.classList.add('disconnected');
+                        wifiIcon.classList.remove('wifi-excellent', 'wifi-good', 'wifi-fair', 'wifi-weak');
+
+                        // Show disconnected overlay
+                        if (wifiDisconnectedOverlay) {
+                            wifiDisconnectedOverlay.style.display = 'block';
+                        }
+
+                        // Make all bars inactive (gray)
+                        const bars = wifiSignalBars.querySelectorAll('.wifi-signal-bar');
+                        bars.forEach(bar => bar.classList.add('inactive'));
+
+                        wifiIcon.title = "WiFi Disconnected";
+                    }
+                } catch (error) {
+                    console.error('WiFi status check error:', error);
+                    // Error - show disconnected state
+                    wifiIcon.classList.remove('connected');
+                    wifiIcon.classList.add('disconnected');
+                    wifiIcon.classList.remove('wifi-excellent', 'wifi-good', 'wifi-fair', 'wifi-weak');
+
+                    // Show disconnected overlay
+                    if (wifiDisconnectedOverlay) {
+                        wifiDisconnectedOverlay.style.display = 'block';
+                    }
+
+                    // Make all bars inactive (gray)
+                    const bars = wifiSignalBars.querySelectorAll('.wifi-signal-bar');
+                    bars.forEach(bar => bar.classList.add('inactive'));
+
+                    wifiIcon.title = "WiFi Status Unknown";
+                }
+            }
+
             checkAudioStatus();
+            checkWifiStatus();
+            updateConnectionInfo();
             setInterval(checkAudioStatus, 5000);
+            setInterval(checkWifiStatus, 5000);
+            setInterval(updateConnectionInfo, 10000);
             setInterval(fetchAndUpdate, refreshIntervalMs);
+            // Update displayed times every second
+            setInterval(updateDisplayedTimes, 1000);
         });
     </script>
 </body>

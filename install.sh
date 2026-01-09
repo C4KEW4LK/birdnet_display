@@ -134,18 +134,25 @@ else
     echo -e "${YELLOW}Skipping cache build. You can run it later with:${NC}"
     echo -e "  ${YELLOW}$INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/cache_builder.py${NC}"
 fi
-# --- Step 9: Create Run Script ---
-echo -e "\n${YELLOW}Step 9: Creating run.sh script...${NC}"
-cat > "$INSTALL_DIR/run.sh" << EOF
+
+# --- Step 9: Ensure Run Script ---
+echo -e "\n${YELLOW}Step 9: Ensuring run.sh is present...${NC}"
+RUN_SCRIPT_TARGET="$INSTALL_DIR/run.sh"
+if [ -f "$SOURCE_DIR/run.sh" ]; then
+    cp "$SOURCE_DIR/run.sh" "$RUN_SCRIPT_TARGET"
+    echo -e "${GREEN}  - Copied run.sh from source directory.${NC}"
+else
+    cat > "$RUN_SCRIPT_TARGET" << EOF
 #!/bin/bash
 # This script activates the virtual environment and starts the Flask server.
-echo "Starting the Bird Detection Display..."
-cd "$INSTALL_DIR"
+cd "$(dirname "$0")"
 source venv/bin/activate
-python3 birdnet_display.py
+exec python3 birdnet_display.py "$@"
 EOF
-chmod +x "$INSTALL_DIR/run.sh"
-echo -e "${GREEN}✅ run.sh created and made executable.${NC}"
+    echo -e "${YELLOW}  - Source run.sh not found; created a minimal launcher instead.${NC}"
+fi
+chmod +x "$RUN_SCRIPT_TARGET"
+echo -e "${GREEN}✅ run.sh ensured and made executable.${NC}"
 
 # --- Step 10: Optional Raspberry Pi Kiosk Setup ---
 echo ""
@@ -155,12 +162,55 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "\n${YELLOW}--- Configuring Raspberry Pi Kiosk Mode ---${NC}"
     echo -e "${YELLOW}This section requires sudo permissions for system changes...${NC}"
 
-    # 9.1: Install Kiosk dependencies
+    # 9.1: Add user to netdev group and configure PolicyKit for NetworkManager access
+    echo -e "\n${YELLOW}Configuring NetworkManager permissions for WiFi management...${NC}"
+
+    # Add user to netdev group
+    if ! groups "$CURRENT_USER" | grep -q '\bnetdev\b'; then
+        sudo usermod -aG netdev "$CURRENT_USER"
+        echo -e "${GREEN}✅ User added to 'netdev' group.${NC}"
+    else
+        echo -e "${GREEN}✅ User already in 'netdev' group.${NC}"
+    fi
+
+    # Create PolicyKit rules to allow netdev group to manage NetworkManager without password
+    echo -e "${YELLOW}Creating PolicyKit rules for NetworkManager...${NC}"
+
+    # Old-style rule for older systems
+    sudo mkdir -p /etc/polkit-1/localauthority/50-local.d/
+    sudo tee /etc/polkit-1/localauthority/50-local.d/org.freedesktop.NetworkManager.pkla > /dev/null << 'EOF'
+[Allow netdev group to manage NetworkManager]
+Identity=unix-group:netdev
+Action=org.freedesktop.NetworkManager.*
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes
+EOF
+
+    # New-style rule for newer systems (Bookworm/Trixie)
+    sudo mkdir -p /etc/polkit-1/rules.d/
+    sudo tee /etc/polkit-1/rules.d/50-NetworkManager.rules > /dev/null << 'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0 && subject.isInGroup("netdev")) {
+        return polkit.Result.YES;
+    }
+});
+EOF
+
+    echo -e "${GREEN}✅ PolicyKit rules created.${NC}"
+
+    # Restart polkit service
+    if sudo systemctl restart polkit 2>/dev/null || sudo systemctl restart polkitd 2>/dev/null; then
+        echo -e "${GREEN}✅ Polkit service restarted.${NC}"
+    fi
+
+    # 9.2: Install Kiosk dependencies
     echo -e "\n${YELLOW}Installing kiosk dependencies (chromium-browser, unclutter)...${NC}"
     sudo apt-get update
     sudo apt-get install -y chromium-browser unclutter
+    echo -e "${GREEN}✅ Kiosk dependencies installed. On-screen keyboard is provided by the web interface.${NC}"
 
-    # 9.2: Create and enable systemd service to run the app on boot
+    # 9.3: Create and enable systemd service to run the app on boot
     echo -e "\n${YELLOW}Creating systemd service to auto-start the application...${NC}"
     SERVICE_FILE="/etc/systemd/system/bird-display.service"
     CURRENT_USER=$(whoami)
@@ -190,20 +240,60 @@ EOF
     sudo systemctl start bird-display.service
     echo -e "${GREEN}✅ Systemd service created and enabled.${NC}"
 
-    # 9.3: Configure desktop autostart using the more robust .desktop file method
+    # 9.4: Configure desktop autostart using the more robust .desktop file method
     echo -e "\n${YELLOW}Configuring desktop autostart for kiosk mode...${NC}"
     
     # Create the launcher script with a delay
     LAUNCHER_SCRIPT="$INSTALL_DIR/kiosk_launcher.sh"
-    cat > "$LAUNCHER_SCRIPT" << EOF
+    if [ -f "$SOURCE_DIR/kiosk_launcher.sh" ]; then
+        cp "$SOURCE_DIR/kiosk_launcher.sh" "$LAUNCHER_SCRIPT"
+        echo -e "${GREEN}  - Copied kiosk launcher script from source directory.${NC}"
+    else
+        cat > "$LAUNCHER_SCRIPT" << EOF
 #!/bin/bash
 # Add a delay to allow the desktop and network to fully initialize
 sleep 15
-# Launch Chromium
-/usr/bin/chromium-browser --noerrdialogs --disable-infobars --kiosk http://localhost:5000
+
+# Require an X session
+if [ -z "${DISPLAY:-}" ]; then
+  echo "No DISPLAY detected. Run this script from a graphical session (e.g., LXDE)."
+  exit 1
+fi
+
+# Launch Chromium/Chrome (try common paths)
+BROWSER_PATH=""
+for candidate in "/usr/bin/chromium-browser" "/usr/bin/chromium" "$(command -v chromium-browser)" "$(command -v chromium)" "$(command -v google-chrome)" "$(command -v google-chrome-stable)"; do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    BROWSER_PATH="$candidate"
+    break
+  fi
+done
+
+if [ -z "$BROWSER_PATH" ]; then
+  echo "Could not find Chromium/Chrome executable. Please install chromium-browser or set BROWSER_PATH."
+  exit 1
+fi
+
+# Disable screen blanking (suppress errors if DPMS extension not available)
+xset s off 2>/dev/null
+xset -dpms 2>/dev/null
+xset s noblank 2>/dev/null
+
+echo "Starting Chromium in kiosk mode..."
+echo "Note: On-screen keyboard is provided by the web interface"
+
+exec "$BROWSER_PATH" \\
+  --noerrdialogs \\
+  --disable-infobars \\
+  --kiosk \\
+  --password-store=basic \\
+  --disable-features=TranslateUI \\
+  --check-for-update-interval=31536000 \\
+  http://localhost:5000
 EOF
+        echo -e "${YELLOW}  - Source kiosk_launcher.sh not found; created fallback launcher instead.${NC}"
+    fi
     chmod +x "$LAUNCHER_SCRIPT"
-    echo -e "${GREEN}  - Created kiosk launcher script.${NC}"
     
     # Create the autostart directory
     AUTOSTART_DIR="$HOME/.config/autostart"
@@ -336,14 +426,14 @@ ExecStartPre=-/usr/bin/docker rm -f birdnet-go
 ExecStartPre=/bin/mkdir -p ${CONFIG_DIR}/hls
 # Mount tmpfs, the '|| true' ensures it doesn't fail if already mounted
 ExecStartPre=/bin/sh -c 'mount -t tmpfs -o size=50M,mode=0755,uid=${UID_VAL},gid=${GID_VAL},noexec,nosuid,nodev tmpfs ${CONFIG_DIR}/hls || true'
-ExecStart=/usr/bin/docker run --rm \
-    --name ${CONTAINER_NAME} \
-    --network host \
-    --env TZ="${TZ}" \
-    --env BIRDNET_UID=${UID_VAL} \
-    --env BIRDNET_GID=${GID_VAL} \
-    ${AUDIO_DEVICE_FLAG}-v ${CONFIG_DIR}:/config \
-    -v ${DATA_DIR}:/data \
+ExecStart=/usr/bin/docker run --rm \\
+    --name ${CONTAINER_NAME} \\
+    --network host \\
+    --env TZ="${TZ}" \\
+    --env BIRDNET_UID=${UID_VAL} \\
+    --env BIRDNET_GID=${GID_VAL} \\
+    ${AUDIO_DEVICE_FLAG}-v ${CONFIG_DIR}:/config \\
+    -v ${DATA_DIR}:/data \\
     ${THERMAL_FLAG}${IMAGE}
 # Cleanup tasks on stop
 ExecStopPost=/bin/sh -c 'umount -f ${CONFIG_DIR}/hls || true'

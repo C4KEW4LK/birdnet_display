@@ -1,6 +1,5 @@
 #!/bin/bash
-# This script activates the virtual environment and starts the Flask server.
-echo "Starting the Bird Detection Display..."
-cd "/home/super/birdnet_display"
+# Activate the virtual environment next to this script and start the app.
+cd "$(dirname "$0")"
 source venv/bin/activate
-python3 birdnet_display.py
+exec python3 birdnet_display.py "$@"
