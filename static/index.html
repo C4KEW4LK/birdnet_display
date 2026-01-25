@@ -1562,40 +1562,20 @@
             }
 
             function formatElapsedTime(seconds) {
-                // Show max 2 levels: min/sec or hour/min
+                // Show only the most significant time unit
                 if (seconds < 60) {
                     return `${Math.floor(seconds)}s ago`;
                 }
                 const totalMinutes = Math.floor(seconds / 60);
-                const remainingSeconds = Math.floor(seconds % 60);
-
                 if (totalMinutes < 60) {
-                    // Show minutes and seconds
-                    if (remainingSeconds === 0) {
-                        return `${totalMinutes}m ago`;
-                    }
-                    return `${totalMinutes}m ${remainingSeconds}s ago`;
+                    return `${totalMinutes}m ago`;
                 }
-
                 const hours = Math.floor(totalMinutes / 60);
-                const remainingMinutes = totalMinutes % 60;
-
                 if (hours < 24) {
-                    // Show hours and minutes
-                    if (remainingMinutes === 0) {
-                        return `${hours}h ago`;
-                    }
-                    return `${hours}h ${remainingMinutes}m ago`;
+                    return `${hours}h ago`;
                 }
-
                 const days = Math.floor(hours / 24);
-                const remainingHours = hours % 24;
-
-                // Show days and hours
-                if (remainingHours === 0) {
-                    return `${days}d ago`;
-                }
-                return `${days}d ${remainingHours}h ago`;
+                return `${days}d ago`;
             }
 
             function updateDisplayedTimes() {
@@ -1680,8 +1660,10 @@
 
                         birdTimestamps[index] = now - (offsetSeconds * 1000);
                         document.getElementById(`name-${index}`).dataset.birdName = bird.name;
+                        // Only set server time on initial load or bird change
+                        // The client-side timer handles ongoing updates to prevent flicker
+                        timeElement.textContent = bird.time_display;
                     }
-                    timeElement.textContent = bird.time_display;
                     timeElement.style.color = "";
                 } else {
                     birdTimestamps[index] = null;
