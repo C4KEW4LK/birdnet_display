@@ -485,6 +485,28 @@ EOF
         sudo mv "${SERVICE_FILE}.bak" "$SERVICE_FILE"
         sudo systemctl daemon-reload
     fi
+
+    # --- Copy RTSP Monitor Script ---
+    echo -e "\n${YELLOW}Copying RTSP monitor script...${NC}"
+    if [ -f "$SOURCE_DIR/rtsp_monitor.py" ]; then
+        cp "$SOURCE_DIR/rtsp_monitor.py" "$INSTALL_DIR/"
+        chmod +x "$INSTALL_DIR/rtsp_monitor.py"
+        echo -e "${GREEN}✅ rtsp_monitor.py copied to $INSTALL_DIR${NC}"
+
+        # --- Add Cron Job for RTSP Monitor ---
+        echo -e "\n${YELLOW}Setting up cron job to run RTSP monitor every 15 minutes...${NC}"
+        CRON_CMD="*/15 * * * * $INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/rtsp_monitor.py >> $INSTALL_DIR/rtsp_monitor.log 2>&1"
+
+        # Add cron job if it doesn't already exist
+        if crontab -l 2>/dev/null | grep -Fq "rtsp_monitor.py"; then
+            echo -e "${GREEN}✅ RTSP monitor cron job already exists.${NC}"
+        else
+            (crontab -l 2>/dev/null; echo "$CRON_CMD") | crontab -
+            echo -e "${GREEN}✅ Cron job added to run RTSP monitor every 15 minutes.${NC}"
+        fi
+    else
+        warn "rtsp_monitor.py not found in source directory. Skipping."
+    fi
 fi
 
 # --- Reboot Prompt ---
