@@ -125,7 +125,7 @@ The `install.sh` script automates the entire setup process on a Raspberry Pi.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/C4KEW4LK/birdnet-display.git
+    git clone https://github.com/C4KEW4LK/birdnet_display.git
     cd birdnet-display
     ```
 
@@ -265,6 +265,8 @@ The `ap_setup.sh` script configures a **dedicated WiFi network** on a USB WiFi a
 
 - USB WiFi adapter (for wlan1)
 - ESP32-based microphone with WiFi capability
+	- uses https://github.com/Sukecz/birdnetgo-esp32-rtsp-mic
+   	- 3D print files for a housing can be found in 3D print files/esp32 mic housing
 
 **Configuration:**
 
