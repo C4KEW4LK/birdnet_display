@@ -31,7 +31,8 @@ def check_status():
         # Check if values match
         if last_rtsp_connect != last_stream_start:
             print("MISMATCH detected - triggering reboot")
-            requests.post(REBOOT_URL, timeout=TIMEOUT)
+            # The mic firmware rejects state-changing requests (HTTP 403) without this header.
+            requests.post(REBOOT_URL, headers={"X-ESP32MIC-CSRF": "1"}, timeout=TIMEOUT)
             print("Reboot command sent")
         else:
             print("Status OK - times match")

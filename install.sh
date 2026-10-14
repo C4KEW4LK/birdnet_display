@@ -4,6 +4,7 @@
 INSTALL_DIR_NAME="birdnet_display"
 INSTALL_DIR="$HOME/$INSTALL_DIR_NAME" # Use the current user's home directory for the installation
 SOURCE_DIR="$(pwd)"
+CURRENT_USER=$(whoami)
 REBOOT_REQUIRED=false
 
 # Color Codes for output
@@ -213,7 +214,6 @@ EOF
     # 9.3: Create and enable systemd service to run the app on boot
     echo -e "\n${YELLOW}Creating systemd service to auto-start the application...${NC}"
     SERVICE_FILE="/etc/systemd/system/bird-display.service"
-    CURRENT_USER=$(whoami)
     
     # Use tee with sudo to write the protected file
     tee /tmp/bird-display.service << EOF

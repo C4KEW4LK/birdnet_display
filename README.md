@@ -126,7 +126,7 @@ The `install.sh` script automates the entire setup process on a Raspberry Pi.
 1.  **Clone the repository:**
     ```bash
     git clone https://github.com/C4KEW4LK/birdnet_display.git
-    cd birdnet-display
+    cd birdnet_display
     ```
 
 2.  **Run the installer:**
@@ -146,8 +146,8 @@ The `install.sh` script automates the entire setup process on a Raspberry Pi.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/C4KEW4LK/birdnet-display.git
-    cd birdnet-display
+    git clone https://github.com/C4KEW4LK/birdnet_display.git
+    cd birdnet_display
     ```
 
 2.  **Add your user to the netdev group (required for WiFi management):**
@@ -374,7 +374,7 @@ For the main housing, you will need:
         2. Check PolicyKit rules exist:
            - Old-style: `ls -la /etc/polkit-1/localauthority/50-local.d/org.freedesktop.NetworkManager.pkla`
            - New-style: `ls -la /etc/polkit-1/rules.d/50-NetworkManager.rules`
-        3. If missing, run `./fix_wifi_permissions.sh` from the project folder or follow the manual steps in the Prerequisites section above
+        3. If missing, re-run `./install.sh` and answer **y** to the Raspberry Pi kiosk step (it creates these rules), or follow the manual steps in the Prerequisites section above
         4. Restart polkit: `sudo systemctl restart polkit` or `sudo systemctl restart polkitd`
         5. Restart the application: `sudo systemctl restart bird-display.service`
         6. If still not working, **reboot the system**: `sudo reboot`
